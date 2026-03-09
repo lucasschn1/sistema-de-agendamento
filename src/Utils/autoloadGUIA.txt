@@ -1,0 +1,67 @@
+A regra lógica do seu sistema agora é: App\ = pasta src/
+
+1. Como Criar uma Nova Classe
+Sempre que você criar um arquivo novo dentro de src, siga este padrão. Vamos usar como exemplo um arquivo User.php dentro de src/Models/.
+
+O arquivo: src/Models/User.php
+
+O Código:
+
+PHP
+<?php
+// O namespace reflete a pasta.
+// Começa com App (que é src) e segue as subpastas.
+namespace App\Models;
+
+class User {
+    public function __construct() {
+        echo "Usuário criado!";
+    }
+}
+Regra: O nome do arquivo (User.php) tem que ser igual ao nome da classe (class User).
+
+2. Como "Ligar" o Autoloader
+Você só precisa fazer isso uma vez, no arquivo principal que recebe as requisições (o "porteiro").
+
+Arquivo: api/index.php
+
+Código:
+
+PHP
+<?php
+// Caminho saindo de 'api', voltando pra raiz e entrando em 'src/utils'
+require_once __DIR__ . '/../src/utils/autoload.php';
+
+// A partir daqui, o PHP já sabe onde tudo está.
+3. Como Usar a Classe
+Agora que o sistema está ligado, você não usa mais require para chamar classes. Você usa o use.
+
+Arquivo: api/index.php (ou qualquer outro Controller/Service)
+
+Código:
+
+PHP
+<?php
+require_once __DIR__ . '/../src/utils/autoload.php';
+
+// Importa a classe pelo "Nome Completo" (Namespace + Classe)
+use App\Models\User;
+use App\Controllers\PatientController;
+
+// Instancia normalmente
+$usuario = new User();
+$paciente = new PatientController();
+🔍 Checklist de Erros (Se não funcionar)
+Se aparecer "Class not found", verifique estes 3 pontos:
+
+Letra Maiúscula/Minúscula:
+
+O namespace é App\Utils? A pasta física tem que ser src/Utils (com U maiúsculo). Se sua pasta estiver utils (minúsculo), renomeie ela agora para evitar problemas no servidor.
+
+Namespace errado:
+
+Verifique se a primeira linha do arquivo da classe está correta. Se o arquivo está em src/Services, o topo deve ser namespace App\Services;.
+
+Nome do Arquivo:
+
+A classe se chama DatabaseManager? O arquivo precisa ser DatabaseManager.php.
