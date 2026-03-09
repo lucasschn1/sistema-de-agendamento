@@ -67,14 +67,14 @@ class UserRepository {
     /**
      * busca usuario por CPF
      * @param bool $includeDeleted - se true, retorna os usuarios soft-deleted
-     * @return User[]
+     * @return User|null
      */
 
     public function findByCpf(string $cpf, bool $includeDeleted = false): ?User {
         try {
             $sql = "SELECT * FROM users WHERE cpf = :cpf";
 
-            if ($includeDeleted) {
+            if (!$includeDeleted) {
                 $sql .= " AND deleted_at IS NULL";
             }
 
@@ -168,7 +168,7 @@ class UserRepository {
     /**
      *  Busca profissionais por 'council_id' (registro profissional)
      * @param string $councilId 
-     * @return User[]
+     * @return User|null
      */
 
     public function findByCouncilId(string $councilId, bool $includeDeleted = false): ?User {
@@ -322,7 +322,7 @@ class UserRepository {
         }
 
         if ($user ->getCouncilId()) {
-            $this->checkCouncilUnique($user->getCouncilId(), $user->getId());
+            $this->checkCouncilIdUnique($user->getCouncilId(), $user->getId());
         }
 
         try{
@@ -510,26 +510,110 @@ class UserRepository {
         }
     }
 
+    private function checkCpfUnique(string $cpf, ?int $excludeId = null): void {
+        $existing = $this->findByCpf($cpf);
 
+        if ($existing && (!$excludeId || $existing->getId() !== $excludeId)) {
+            throw new DomainException("CPF já cadastrado");
+        }
+    }
 
+    private function checkCouncilIdUnique(string $councilId, ?int $excludeId = null): void
+    {
+        $existing = $this->findByCouncilId($councilId);
 
+        if ($existing && (!$excludeId || $existing->getId() !== $excludeId)) {
+            throw new DomainException("Número de registro profissional (CRP/CRM) já cadastrado");
+        }
+    }
 
+    /*
+    ==============================================================================
+    MÉTODOS AUXILIARES
+    ===============================================================================
+    */
 
+    /**
+     *  Conta total de usuario por role
+     */
 
+    public function countByRole(string $role, bool $activeOnly = true): int {
+        try{
+            $sql = "SELECT COUNT(*) FROM users WHERE role = :role AND deleted_at IS NULL";
 
+            if ($activeOnly) {
+                $sql .= " AND active = 1";
+            }
 
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute(['role' => $role]);
 
+            return (int) $stmt->fetchColumn();
 
+        } catch (PDOException $e) {
+            error_log("Erro ao contar usuários: " . $e->getMessage());
+            return 0;
+        }
+    }
 
+    /**
+     *  Lista todos os usuários (com paginação)
+     *  @param int $limit - Quantidade de registros por página
+     *  @param int $offset - Deslocamento (página * limit)
+     *  @return User[]
+     */
 
+    public function findAll(int $limit = 50, int $offset = 0, bool $includeDeleted = false): array {
+        try {
+            $sql = "SELECT * FROM users";
 
+            if (!$includeDeleted) {
+                $sql .= " WHERE deleted_at IS NULL";
+            }
 
+            $sql .= " ORDER BY name LIMIT :limit :offset";
 
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+            $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+            $stmt->execute();
 
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+            return array_map(fn($data) => new User($data), $results);
 
+        } catch (PDOException $e) {
+            error_log("Erro ao listas usuários: " . $e->getMessage());
+            return [];
+        }
+    }
 
+    /**
+     *  Busca usuário por nome (busca parcial)
+     *  @param string $name - Nome
+     *  @return User[]
+     */
 
+    public function searchByName(string $name, bool $activeOnly = true): array {
+        try {
+            $sql = "SELECT * FROM users WHERE name LIKE :name AND deleted_at IS NULL";
 
+            if ($activeOnly) {
+                $sql .= " AND active = 1";
+            }
+
+            $sql .= " ORDER BY name LIMIT 50";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute(['name' => "%{name}%"]);
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            return array_map(fn($data) => new User($data), $results);
+
+        } catch (PDOException $e) {
+            error_log("Erro ao buscar usuário por nome " . $e->getMessage());
+            return [];
+        }
+    }
 
 }
