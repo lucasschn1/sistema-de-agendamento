@@ -233,6 +233,123 @@ class ServiceRepository {
             throw $e;
         }
     }
+
+    /**
+     * =============================================================================
+     * MÉTODOS DE ATUALIZAÇÃO (UPDATE)
+     * =============================================================================
+     */
+
+    /**
+     * Atualiza dados do serviço
+     * @throws InvalidArgumentException - se serviço não existir
+     * @throws DomainException - se nome já existir
+     */
+    public function update(Service $service): bool {
+        if (!$service->getId() || !$this->findById($service->getId())) {
+            throw new InvalidArgumentException(
+                "Serviço com ID " . $service->getId() . " não encontrado"
+            );
+        }
+        // verifica a duplicidade de nome (ignorando o própri registro)
+        $this->checkNameUnique($service->getName(), $service->getId());
+
+        try {
+            $sql = "UPDATE services SET
+                        name = :name,
+                        descrption = :description,
+                        price = :price,
+                        duration_minutes = :duration_minutes,
+                        category = :category,
+                        active = :active
+                    WHERE id = :id";
+
+            $stmt = $this->pdo->prepare($sql);
+
+            return $stmt->execute([
+                'id'               => $service->getId(),
+                'name'             => $service->getName(),
+                'description'      => $service->getDescription(),
+                'price'            => $service->getPrice(),
+                'duration_minutes' => $service->getDurationMinutes(),
+                'category'         => $service->getCategory(),
+                'active'           => $service->isActive() ? 1 : 0,
+
+            ]);
+        } catch(PDOException $e) {
+            error_log("Erro ao atualizar serviço: " . $e->getMessage());
+            throw $e;      
+        }
+    }
+
+    /**
+     * Atualiza apenas o preço do serviço
+     */
+    public function updatePrice(int $serviceId, float $NewPrice) {
+        if ($NewPrice < 0) {
+            throw new InvalidArgumentException("Preço não pode ser negativo");
+        }
+
+        try {
+            $stmt = $this->pdo->prepare(
+                "UPDATE services
+                SET price = :price
+                WHERE id = :d AND deleted_at IS NULL"
+            );
+
+            return $stmt->execute([
+                'id' => $serviceId,
+                'price' => $NewPrice,
+            ]);
+
+        } catch(PDOException $e) {
+            error_log("Erro ao atualizar preço: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Ativa um serviço
+     */
+    public function activate(int $serviceId): bool {
+        try {
+            $stmt = $this->pdo->prepare(
+                "UPDATE services
+                SET active = 1
+                WHERE id = :id AND deleted_at IS NULL"
+            );
+
+            return $stmt->execute(['id' => $serviceId]);
+
+        } catch (PDOException $e) {
+            error_log("Erro ao ativar serviço: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Desativa um serviço (ainda fica visível, mas não disponível pra novos agendamentos)
+     */
+    public function desativate(int $serviceId): bool {
+        try {
+            $stmt = $this->pdo->prepare(
+                "UPDATE service
+                SET active = 0
+                WHERE id = :id AND
+                deleted_at IS NULL"
+            );
+
+            return $stmt->execute(['id' => $serviceId]);
+
+        } catch (PDOException $e) {
+            error_log("Erro ao desativar serviço: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+
+
+    
 }
 
 ?>
