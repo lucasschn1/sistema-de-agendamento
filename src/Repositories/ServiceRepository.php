@@ -347,6 +347,211 @@ class ServiceRepository {
         }
     }
 
+    /**
+     * =============================================================================
+     * MÉTODOS DE DELEÇÃO (soft delete)
+     * =============================================================================
+     */
+
+    /**
+     * Soft delete: marca serviço como deletado
+     * IMPORTANTE: serviços com agendamentos vinculados não podem ser deletados
+     * devido ao ON DELETE RESTRICT no banco
+     */
+
+    public function delete(int $id) {
+        try {
+            $stmt = $this->pdo->prepare(
+                "UPDATE services
+                SET deleted_at = NOW(),
+                active = 0
+                WHERE id = :id AND deleted_at IS NULL"
+            );
+
+            $stmt->execute(['id' => $id]);
+
+            if ($stmt->rowCount() === 0) {
+                throw new InvalidArgumentException(
+                    "Serviço com ID {$id} não encontrado ou já deletado"
+                );
+            }
+
+            return true;
+
+        } catch (PDOException $e) {
+            error_log("Erro ao deletar serviço: " , $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Hard delete: remova permanentemente do banco
+     * !USAR COM CUIDADO - testes ou correções
+     */
+    public function hardDelete(int $id): bool {
+        try {
+            $stmt = $this->pdo->prepare(
+                "DELETE FROM services WHERE id = :id"
+            );
+
+            return $stmt->execute(['id' => $id]);
+
+        } catch(PDOException $e) {
+            // violação de FK: há agendamentos
+            if ($e->getCode() === '2300') {
+                throw new DomainException(
+                    "Não é possível deletar permantemente: existem agendamentos vinculados"
+                );
+            }
+
+            error_log("Erro ao deletar serviço (hard delete): " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Restaura um serviço soft-deleted
+     */
+    public function restore(int $id): bool {
+        try {
+            $stmt = $this->pdo->prepare(
+                "UPDATE services 
+                SET deleted_at = NULL, active = 1
+                WHERE id = :id AND deleted_at IS NOT NULL"
+            );
+
+            $stmt->execute(['id' => $id]);
+
+            if ($stmt->rowCount() === 0) {
+                throw new InvalidArgumentException("Serviço não encontrado ou não está deletado");
+            }
+
+            return true;
+
+        } catch (PDOException $e) {
+            error_log("Error ao restaurar serviço: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * =============================================================================
+     * VALIDAÇÕES PRIVADAS
+     * =============================================================================
+     */
+
+    private function checkNameUnique (string $name, ?int $excludeId = null): void {
+        $existing = $this->findByName($name);
+
+        if ($existing && (!$excludeId || $existing->getId() !== $excludeId)) {
+            throw new DomainException("Já existe um serviço com esse nome");
+        }
+    }
+
+    /**
+     * =============================================================================
+     * MÉTODOS AUXILIARES / ESTISTICAS
+     * =============================================================================
+     */
+
+    /**
+     * Conta total de serviços
+     */
+    public function count(bool $activeOnly, bool $includeDeleted = false): int {
+        try {
+            $sql = "SELECT COUNT(*) FROM services";
+            $conditions = [];
+
+            if (!$includeDeleted) {
+                $conditions[] = "deleted_at IS NULL";
+            }
+
+            if ($activeOnly) {
+                $conditions[] = "active = 1";
+            }
+
+            if (!empty($conditions)) {
+                $sql .= " WHERE " . implode(" AND ", $conditions);
+            }
+
+            $stmt = $this->pdo->query($sql);
+            return (int) $stmt->fetchColumn();
+
+        } catch(PDOException $e) {
+            error_log("Ero ao contar serviços: " . $e->getMessage());
+            return 0;
+        }
+    }
+
+    /**
+     * Busca serviços por nome (busca parcial)
+     * @param string $query - termo da busca
+     * @return Service[]
+     */
+    public function search(string $query, bool $activeOnly = true): array {
+        try {
+            $sql = "SELECT * FROM services
+                WHERE (name LIKE :query OR description LIKE :query)
+                AND deleted_at IS NULL";
+
+            if ($activeOnly) {
+                $sql .= " AND active = 1";
+            }
+
+            $sql .= " ORDER BY name LIMIT 50";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute(['query' => "%{$query}%"]);
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            return array_map(fn($data) => new Service($data), $results);
+
+        } catch (PDOException $e) {
+            error_log("Erro ao buscar serviços: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Lista todas as categorias únicas
+     * @return string[]
+     */
+    public function getAllCategories(): array {
+        try {
+            $sql = "SELECT DISTINCT category
+            FROM services
+            WHERE deleted_at IS NULL AND category IS NOT NULL
+            ORDER by category";
+
+            $stmt = $this->pdo->query($sql);
+            return $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+        } catch (PDOException $e) {
+            error_log("Erro ao listar categorias: " . $e ->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Serviços mais utilizados (maior qunatidade de agendamentos)
+     * @return array Array associativo com service_id, name, total_appointments
+     */
+    public function getMostUsed(int $limit = 10): array {
+        try {
+
+        } catch (PDOException $e) {
+            
+        }
+    }
+
+
+
+
+
+
+
+
+
 
 
     
