@@ -538,9 +538,30 @@ class ServiceRepository {
      */
     public function getMostUsed(int $limit = 10): array {
         try {
+            $sql = "SELECT
+                        s.id,
+                        s.name,
+                        s.category,
+                        s.price,
+                        COUNT(a.id) as total_appointmrnts
+                        FROM services s
+                        LEFT JOIN appointmets a ON s.id = a.service_id
+                        AND a.deleted_at IS NULL
+                        WHERE s.deleted_at IS NULL
+                            GROUP BY s.id
+                            ORDER BY s.id
+                            ORDER BY total_appointments DESC
+                            LIMIT :limit";
+            
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+            $stmt->execute();
+
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         } catch (PDOException $e) {
-            
+            error_log("Erro ao buscar serviços mais usados: " . $e->getMessage());
+            return [];
         }
     }
 
