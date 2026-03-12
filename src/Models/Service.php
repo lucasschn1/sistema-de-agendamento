@@ -37,7 +37,7 @@ class Service {
     public function getPrice(): float { return $this->price;}
     public function getDurationMinutes(): int { return $this->duration_minutes;}
     public function getCategory(): string { return $this->category;}
-    public function getActive(): bool { return $this->active;}
+    public function isActive(): bool { return $this->active;}
     public function getDeletedAt(): ?DateTime { return $this->deleted_at; }
     public function getCreatedAt(): ?DateTime { return $this->created_at;}
     public function getUpdatedAt(): ?DateTime  { return $this->updated_at;}
