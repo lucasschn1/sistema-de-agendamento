@@ -40,7 +40,7 @@ class AppointmentRepository {
                 return null;
             }
 
-            $appointment= new Appointment($data);
+            $appointment = new Appointment($data);
 
             if ($loadRelations) {
                 $this->loadRelations($appointment);           
@@ -54,5 +54,27 @@ class AppointmentRepository {
         }
     }
 
+    /**
+     * Busca agendamento de um paciente
+     * @return Appointment[]
+     */
+    public function findByPatient(int $patientId, bool $loadRelations = true): array {
+        try {
+            $sql = "SELECT * FROM appointments
+                    WHERE patient_id = :patient_id
+                    AND deleted_at IS NULL
+                    ORDER BY start_time DESC";
+            
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute(['patient_id' => $patientId]);
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            return $this->hydrateAppointment($results, $loadRelations);
+
+        } catch (PDOExeption $e) {
+            error_log("Erro ao buscar agendamentos por paciente: " . $e->getMessage());
+            throw $e;
+        }
+    }
 
 }
