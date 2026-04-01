@@ -71,8 +71,27 @@ class AppointmentRepository {
 
             return $this->hydrateAppointment($results, $loadRelations);
 
-        } catch (PDOExeption $e) {
+        } catch (PDOException $e) {
             error_log("Erro ao buscar agendamentos por paciente: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    public function findByProfessional(int $professionalId, bool $loadRelations = true) : array {
+        try {
+            $sql = "SELECT * FROM appointments
+                    WHERE professional_id = :professional_id
+                    AND deleted_at IS NULL
+                    ORDER by start_time DESC";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute(['professional_id' => $professionalId]);       
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            return $this->hydrateAppointments($results, $loadRelations);
+
+        } catch (PDOException $e) {
+            error_log("Erro ao buscar agendamentos por profissional: " . $e->getMessage());
             throw $e;
         }
     }
