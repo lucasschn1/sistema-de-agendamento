@@ -96,4 +96,84 @@ class AppointmentRepository {
         }
     }
 
+    /**
+     * Busca agendamentos por periodo
+     * @param DateTime $startDate (data inicial)
+     * @param DateTime $endDate (data final)
+     * @return Appointmet[]
+     */
+    public function findByDateRange(DateTime $startDate, DateTime $endDate, bool $loadRelations = true): array {
+        try {
+            $sql = "SELECT * FROM appointments
+                    WHERE start_time >= :start_date
+                    AND start_time < :end_date
+                    AND deleted_at IS NULL
+                    ORDER BY start_time";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([
+                'start_date' => $startDate->format('Y-m-d 00:00:0'),
+                'end_date' => $endDate->modify('+1 day')->format('Y-m-d 00:00:0'),
+            ]);
+
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            return $this->hydrateAppointments($results, $loadRelations);
+
+        } catch (PDOException $e) {
+            error_log("Erro ao buscar agendamento por período: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Busca agendamentos de profissional em um dia especifico
+     * @return Appointment[]
+     */
+    public function findByProfessionalDate(int $professionalId, DateTime $date, bool $loadrelations = true): array {
+        try {
+            $sql = "SELECT * FROM appointments
+                    WHERE professional_id = :professional_id
+                    AND DATE(start_time) = :date
+                    AND deleted_at IS NULL
+                    ORDER BY start_time";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([
+                'professional_id' => $professionalId,
+                'date' => $date->format('Y-m-d'),
+            ]);
+
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            return $this->hydrateAppointmet($results, $loadRelations);
+        } catch(PDOException $e) {
+            error_log("Erro ao buscar agendamentos por profissional e data: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Busca agendamentos por status
+     * @param string $status 'schedule', 'confirmed', 'completed', 'cancelled', 'no-show'
+     * @return Appointment[]
+     */
+    public function findByStatus(string $status, bool $loadRelations):array {
+        try {
+            $sql = "SELECT * FROM appointments
+                    WHERE status = :status
+                    AND deleted_at IS NULL
+                    ORDER BY start_time DESC";
+            
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute(['status' => $status]);
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            return $this->hydrateAppointment($results, $loadRelations);
+
+        } catch(PDOException $e) {
+            error_log("Erro ao buscar agendamentos por status: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
 }
