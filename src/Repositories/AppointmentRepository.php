@@ -69,7 +69,7 @@ class AppointmentRepository {
             $stmt->execute(['patient_id' => $patientId]);
             $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            return $this->hydrateAppointment($results, $loadRelations);
+            return $this->hydrateAppointments($results, $loadRelations);
 
         } catch (PDOException $e) {
             error_log("Erro ao buscar agendamentos por paciente: " . $e->getMessage());
@@ -145,7 +145,7 @@ class AppointmentRepository {
 
             $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            return $this->hydrateAppointmet($results, $loadRelations);
+            return $this->hydrateAppointments($results, $loadRelations);
         } catch(PDOException $e) {
             error_log("Erro ao buscar agendamentos por profissional e data: " . $e->getMessage());
             throw $e;
@@ -168,10 +168,29 @@ class AppointmentRepository {
             $stmt->execute(['status' => $status]);
             $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            return $this->hydrateAppointment($results, $loadRelations);
+            return $this->hydrateAppointments($results, $loadRelations);
 
         } catch(PDOException $e) {
             error_log("Erro ao buscar agendamentos por status: " . $e->getMessage());
+            throw $e;
+        }
+    }
+    
+    public function findByRecurrenceGroup(int $recurrenceGroup, bool $loadRelations = true): array {
+        try {
+            $sql = "SELECT * FROM appointments
+                    WHERE recurrence_group_id = :group_id
+                    AND deleted_at IS NULL
+                    ORDER BY start_time";
+            
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute(['group_id' => $recurrenceGroup]);
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            return $this->hydrateAppointments($results, $loadRelations);
+
+        } catch (PDOException $e) {
+            error_log("Erro ao buscar agendamentos por grupo de recorreência: " . $e->getMessage());
             throw $e;
         }
     }
