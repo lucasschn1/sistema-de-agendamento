@@ -351,4 +351,87 @@ class AppointmentRepository {
             throw $e;
         }
     }
+
+     /**
+     * =======================================================================
+     * MÉTODOS DE ATUALIZAÇÃO (UPDATE)
+     * =======================================================================
+     */
+
+     /**
+     * Atualiza dados do agendamento
+     * NOTA: Não atualiza status, paid, ou payment - use métodos específicos
+     */
+
+     public function update(Appointment $appointment): bool {
+        if (!$appointment->getId() || !this->findById($appointment, false)) {
+            throw new InvalidArgumentException(
+                "Agendamento com ID " . $appointment->getId() . " não encontrado"
+            );
+        }
+
+        try {
+            $sql = "UPDATE appointments SET
+                    patient_id = :patient_id,
+                    professional_id = :professional_id,
+                    service_id = :service_id,
+                    start_time = :start_time,
+                    duration_minutes = :duration_minutes,
+                    price = :price,
+                    notes = :notes
+                    WHERE id = :id
+                    AND deleted_at IS NULL";
+
+            $stmt = $this->pdo->prepare($sql);
+
+            return $stmt->execute([
+                'id' => $appointment->getId(),
+                'patient_id' => $appointment->getPatientId(),
+                'professsional_id' => $appointment->getProfessionalId(),
+                'service_id' => $appointment->getServiceId(),
+                'start_time' => $appointment->getStartTime()->format('Y-m-d H:i:s'),
+                'duration_minutes' => $appointment->getDurationMinutes(),
+                'price' => $appointment->getPrice(),
+                'notes' => $appointment->getNotes(),
+            ]);
+
+        } catch (PDOException $e) {
+            // Trigger de conflito de horário
+            if (str_contains($e->getMessage(), 'Conflito de horário')) {
+                throw new DomainException(
+                    "Horário indisponível: o profissional já possui outro agendamento nesse período"
+                );
+            }
+
+            error_log("Erro ao atualizar agendamento: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Confirma um agendamento
+     */
+    public function confirm(int $appointmentId): bool {
+        return $this->updateStatus($appointmentId, 'confirmed');
+    }
+
+    /**
+     * Marca como completado
+     */
+    public function complete(int $appointmentId): bool {
+        return $this->updateStatus($appointmentId, 'completed');
+    }
+
+    /**
+     * Cancela um agendamento
+     */
+    public function cancel(int $appointmentId, ?string $reason = null): bool {
+        try {
+
+        } catch (PDOException $e) {
+            
+        }
+    }
+
+
 }
