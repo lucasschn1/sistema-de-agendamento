@@ -175,7 +175,11 @@ class AppointmentRepository {
             throw $e;
         }
     }
-    
+
+    /**
+     * Busca agendamentos em um grupo de recorrência
+     * @return Appointment[]
+     */
     public function findByRecurrenceGroup(int $recurrenceGroup, bool $loadRelations = true): array {
         try {
             $sql = "SELECT * FROM appointments
@@ -195,4 +199,156 @@ class AppointmentRepository {
         }
     }
 
+    /**
+     * Busca próximo agendamento (futuros e não cancelados)
+     * @return Appointment[]
+     */
+    public function getUpcoming(int $limit = 50, bool $loadRelations = true): array {
+        try {
+            $sql = "SELECT * FROM appointments
+                    WHERE start_time >= NOW()
+                    AND status IN ('scheduled', 'confirmed')
+                    AND deleted_at IS NULL
+                    ORDER BY start_time
+                    LIMIT: limit";
+            
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->bindValue(':limit', $limit , PDO::PARAM_INT);
+            $stmt->execute();
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            return $this->hydrateAppointments($results, $loadRelations);
+
+        } catch(PDOException $e) {
+            error_log("Erro ao bucar próximos agendamentos: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Busca agendamentos -NÃO- pagos (completados mas sem pagamentos)
+     * @return Appointment[]
+     */
+    public function getUnpaid(bool $loadRelations = true): array {
+        try {
+            $sql = "SELECT * FROM appointments
+                    WHERE paid = 0
+                    AND status = 'completed'
+                    AND deleted_at IS NULL
+                    ORDER BY start_time";
+            
+            $stmt = $this->pdo->query($sql);
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            return $this->hydrateAppointments($results, $loadRelations);
+
+        } catch (PDOException $e) {
+            error_log("Erro ao buscar agendamentos não pagos: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * =======================================================================
+     * MÉTODOS DE CRIAÇÃO (CREATE)
+     * =======================================================================
+     */
+
+    /**
+     * Cria a recorrência usando a stored procedure do banco
+     * A procedure cria automaticamente todos os agendamentos do período
+     * 
+     * @param string $type 'semanal' ou 'quinzenal'
+     * @param int $dayOfWeek 0=Domingo, 1=Segunda ... 6=Sábado
+     * @return array ['recurrence_group_id' => int, 'sessoes_criadas' => int]
+     */
+    public function createRecurrence(
+        int $patientId,
+        int $professionalId,
+        int $serviceId,
+        string $type,
+        int $dayOfWeek,
+        string $startHour, //HH:MM:SS
+        DateTime $startDate,
+        ?DateTime $endDate = null,
+        ?string $notes = null
+    ): array {
+        try {
+            $stmt = $this->pdo->prepare("CALL sp_create_recurrence(?, ?, ?, ?, ?, ?, ?, ?, ?)");
+
+            $stmt->execute([
+                $patientId,
+                $professionalId,
+                $serviceId,
+                $type,
+                $dayOfWeek,
+                $startHour,
+                $startDate->format('Y-m-d'),
+                $endDate?->format('Y-m-d'),
+                $notes
+            ]);
+
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            return [
+                'recurrence_group_id' => (int) $result['recurrence_group_id'],
+                'sessoes_criadas' => (int) $result['sessoes_criadas']
+            ];
+        } catch (PDOException $e) {
+            if (str_contains($e->getMessage(), 'Conflito de horário')) {
+                throw new DomainException(
+                    "Horário indisponível para recorrência: conflito detectado em uma ou mais datas"
+                );
+            }
+
+            if (str_contains($e->getMessage(), 'Serviço não encontrado')) {
+                throw new InvalidArgumentException("Serviço não encontrado ou inativo");
+            }
+
+            error_log("Erro ao criar recorrêcia: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Cria agendamento único usando a stored procedure do banco
+     * a procedure busca automaticamente preço e duração do serviço
+     */
+    public function createUnique(
+        int $patientId,
+        int $professionalId,
+        int $serviceId,
+        DateTime $startTime,
+        ?string $notes = null
+    ): int {
+        try {
+            $stmt = $this->pdo->prepare("CALL sp_create_appointment(?, ?, ?, ?, ?)");
+            
+            $stmt->execute([
+                $patientId,
+                $professionalId,
+                $serviceId,
+                $startTime->format('Y-m-d H:i:s'),
+                $notes
+            ]);
+ 
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            return (int) $result['appointment_id'];
+ 
+        } catch (PDOException $e) {
+            // Trigger de conflito de horário
+            if (str_contains($e->getMessage(), 'Conflito de horário')) {
+                throw new DomainException(
+                    "Horário indisponível: o profissional já possui outro agendamento neste período"
+                );
+            }
+ 
+            if (str_contains($e->getMessage(), 'Serviço não encontrado')) {
+                throw new InvalidArgumentException("Serviço não encontrado ou inativo");
+            }
+ 
+            error_log("Erro ao criar agendamento: " . $e->getMessage());
+            throw $e;
+        }
+    }
 }
