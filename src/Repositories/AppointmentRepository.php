@@ -130,7 +130,7 @@ class AppointmentRepository {
      * Busca agendamentos de profissional em um dia especifico
      * @return Appointment[]
      */
-    public function findByProfessionalDate(int $professionalId, DateTime $date, bool $loadrelations = true): array {
+    public function findByProfessionalDate(int $professionalId, DateTime $date, bool $loadRelations = true): array {
         try {
             $sql = "SELECT * FROM appointments
                     WHERE professional_id = :professional_id
@@ -364,7 +364,7 @@ class AppointmentRepository {
      */
 
      public function update(Appointment $appointment): bool {
-        if (!$appointment->getId() || !this->findById($appointment, false)) {
+        if (!$appointment->getId() || !$this->findById($appointment->getId(), false)) {
             throw new InvalidArgumentException(
                 "Agendamento com ID " . $appointment->getId() . " não encontrado"
             );
@@ -452,6 +452,218 @@ class AppointmentRepository {
             throw $e;
         }
     }
+
+    /**
+     * Marca - no-show (paciente não apareceu)
+     */
+    public function markAsNoShow(int $appointmentId, ?string $reason = null) : bool {
+        try {
+            $sql = "UPDATE appointments
+            SET status = 'no-show', cancellation_reason = :reason
+            WHERE id = id:
+            AND status IN ('schedeled', 'confirmed')
+            AND deleted_at IS NULL";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([
+            'id' => $appointmentId,
+            'reason' => $reason ?? 'Paciente não compareceu',
+        ]);
+
+        if ($stmt->rowCount() === 0) {
+            throw new DomainException(
+                "Não é possível marcar como no-show: agendamento não encontrado ou status inválido"
+            );
+        }
+
+        return true;
+
+        } catch (PDOException $e) {
+            error_log("Erro ao marcar como no-show: " , $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Registra pagementos usando a stored procedure
+     */
+    function registerPayment(int $appointmentId, string $paymentMethod, ?DateTime $paymentDate = null): bool {
+        try {
+            $stmt = $this->pdo->prepare("CALL sp_register_payment(?,?,?)");
+
+            $stmt->execute([
+                $appointmentId,
+                $paymentMethod,
+                $paymentDate ? $paymentDate->format('Y-m-d') : date("Y-m-d")
+            ]);
+
+            return true;
+
+        } catch (PDOException $e) {
+            if (str_contains($e->getMessage(), 'status inválido para pagamento')) {
+                throw new DomainException(
+                    "Não é possível registrar pagamento: status do agendamento não permite"
+                );
+            }
+
+            error_log("Erro ao registrat pagamento: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Cancela recorrência a partir de uma data usando stored procedure
+     */
+    public function cancelRecurrence(int $recurrenceGroupId, DateTime $fromDate, ?string $reason = null): int {
+        try {
+            $stmt = $this->pdo->prepare("CALL sp_cancel_recurrence(?,?,?)");
+
+            $stmt->execute([
+                $recurrenceGroupId,
+                $fromDate->format('Y-m-d'),
+                $reason
+            ]);
+
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            return (int) $result['sessoes_canceladas'];
+
+        } catch(PDOException $e) {
+            error_log("Erro ao cancelar recorrência: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Atualiza status do agendamento (método privado genérico)
+     */
+    private function updateStatus(int $appointmentId, string $newStatus): bool {
+        try {
+            $stmt = $this->pdo->prepare(
+                "UPDATE appointments
+                SET status = :status
+                WHERE id = :id AND deleted_at IS NULL"
+            );
+
+            return $stmt->execute([
+                'id' => $appointmentId,
+                'status' => $newStatus
+            ]);
+
+        } catch (PDOException $e) {
+            error_log("Erro ao atualizar status: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * =======================================================================
+     * MÉTODOS DE DELEÇÃO (SOFT DELETE)
+     * =======================================================================
+     */
+
+    /**
+     * Soft delete: marca agendamento como deletado
+     */
+    public function delete(int $id): bool {
+        try {
+            $stmt = $this->pdo->prepare(
+                "UPDATE appointments
+                SET deleted_at = NOW()
+                WHERE id = :id AND deleted_at IS NULL"
+            );
+
+            $stmt->execute(['id' => $id]);
+
+            if ($stmt->rowCount() === 0) {
+                throw new InvalidArgumentException(
+                    "Agendamento com ID {$id} não encontrado ou já deletado"
+                );
+            }
+
+            return true;
+
+        } catch(PDOException $e) {
+            error_log("Erro ao deletar agendamento: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Restaura um agendamento soft-deleted
+     */
+    public function restore(int $id): bool {
+        try {
+            $stmt = $this->pdo->prepare(
+                "UPDATE appointments
+                SET deleted_at = NULL
+                WHERE id = :id AND deleted_at IS NOT NULL"
+            );
+
+            $stmt->execute(['id' => $id]);
+
+            if ($stmt->rowCount() === 0) {
+                throw new InvalidArgumentException(
+                    "Agendamento não encontrado ou não está deletado"
+                );
+            }
+
+            return true;
+
+        } catch (PDOException $e) {
+            error_log("Erro ao restaurar agendamento: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+     /**
+     * =======================================================================
+     * MÉTODOS AUXILIARES / VALIDAÇÕES
+     * =======================================================================
+     */
+    
+
+    /**
+     * =======================================================================
+     * MÉTODOS PRIVADOS - HIDRATAÇÃO
+     * =======================================================================
+     */
+
+    /**
+     * Carrega relacionamentos (User e Service) em um Appointment
+     */
+    private function loadRelations(Appointment $appointment): void {
+        $patient = $this->userRepo->findById($appointment->getPatientId());
+        if ($patient) {
+            $appointment->setPatient($patient);
+        }
+
+        $professional = $this->userRepo->findById($appointment->getProfessionalId());
+        if ($professional) {
+            $appointment->setProfessional($professional);
+        }
+
+        $service = $this->serviceRepo->findById($appointment->getServiceId());
+        if ($service) {
+            $appointment->setService($service);
+        }
+    }
+
+    /**
+     * Converte array de dados do banco em array de Appointment objects
+     */
+    private function hydrateAppointments(array $results, bool $loadRelations): array {
+        $appointments = array_map(fn($data) => new Appointment($data), $results);
+
+        if ($loadRelations) {
+            foreach ($appointments as $appointment) {
+                $this->loadRelations($appointment);
+            }
+        }
+
+        return $appointments;
+
+    }
+
 
 
 }
