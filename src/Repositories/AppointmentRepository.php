@@ -427,9 +427,29 @@ class AppointmentRepository {
      */
     public function cancel(int $appointmentId, ?string $reason = null): bool {
         try {
+            $sql = "UPDATE appointments
+                    SET status = 'cancelled', 'cancellattion_reason = :reason
+                    WHERE id = :id
+                    AND status IN ('scheduled', 'confirm')
+                    AND deleted_at IS NULL";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([
+                'id' => $appointmentId,
+                'reason' => $reason
+            ]);
+
+            if ($stmt->rowCount() === 0) {
+                throw new DomainException(
+                    "Não é possível cancelar: agendamento não encontrado ou status inválido"
+                );
+            }
+
+            return true;
 
         } catch (PDOException $e) {
-            
+            error_log("Erro ao cancelar agendamento: " , $e->getMessage());
+            throw $e;
         }
     }
 
