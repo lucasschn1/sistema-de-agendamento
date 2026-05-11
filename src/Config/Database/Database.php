@@ -1,14 +1,28 @@
 <?php
+
+namespace App\Config\Database;;
+
+use PDO;
+use PDOException;
+
 Class Database {
     private static ?Database $instance = null;
     private static ?PDO $pdo = null;
 
-    private string $host = 'localhost';
-    private string $dbname = 'nome_do_banco';
-    private string $user = 'root';
-    private string $password = '';
+    private string $host;
+    private string $dbname;
+    private string $user;  
+    private string $password;
 
     private function __construct() {
+        $this->host = $_ENV['DB_HOST'];
+
+        $this->dbname = $_ENV['DB_NAME'];
+
+        $this->user = $_ENV['DB_USER'];
+
+        $this->password = $_ENV['DB_PASS'];
+
         $this->connect();
     }
 

@@ -731,7 +731,4 @@ class AppointmentRepository {
         return $appointments;
 
     }
-
-
-
 }
