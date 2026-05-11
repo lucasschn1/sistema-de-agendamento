@@ -620,6 +620,74 @@ class AppointmentRepository {
      * MÉTODOS AUXILIARES / VALIDAÇÕES
      * =======================================================================
      */
+
+    /**
+     * Verifica se um horário está disponível para o profissional
+     */
+    public function isTimeSlotAvailable(
+        int $professionalId,
+        DateTime $startTime,
+        int $durationMinutes,
+        ?int $excludeAppoitmentId = null
+    ): bool {
+        try {
+            $endTime = (clone $startTime)->modify("+{$durationMinutes} minutes");
+
+            $sql = "SELECT COUNT(*) FROM appointments
+                    WHERE professional_id = :professional_id
+                    AND status NOT IN ('cancelled', 'no-show')
+                    AND deleted_at IS NULL
+                    AND start_time < :end_time
+                    AND end_time > :start_time";
+
+            if ($excludeAppoitmentId) {
+                $sql .= " AND id != :exclude_id";
+            }
+
+            $stmt = $this->pdo->prepare($sql);
+
+
+            $params = [
+                'professional_id' => $professionalId,
+                'start_time'      => $startTime->format('Y-m-d H:i:s'),
+                'end_time'        => $endTime->format('Y-m-d H:i:s'),
+            ];
+
+
+            if ($excludeAppoitmentId) {
+                $params['exclude_id'] = $excludeAppoitmentId;
+            }
+
+            $stmt->execute($params);
+
+            return (int) $stmt->fetchColumn() === 0;
+        } catch (PDOException $e) {
+            error_log("Erro ao verificar disponibilidade: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Conta agendamentos por status
+     */
+    public function countByStatus(string $status): int {
+        try {
+            $stmt = $this->pdo->prepare(
+                "SELECT COUNT(*) FROM appointments
+                WHERE status = :status AND deleted_at IS NULL"
+            );
+
+            $stmt->execute([
+                'status' => $status
+            ]);
+
+            return (int) $stmt->fetchColumn();
+
+        } catch (PDOException $e) {
+            error_log("Erro ao contar agendamentos: " . $e->getMessage());
+            return 0;
+        }
+    }
     
 
     /**
