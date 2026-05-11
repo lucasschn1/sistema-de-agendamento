@@ -1,4 +1,12 @@
 <?php
+namespace App\Repositories;
+
+use App\Models\Service; // Importa a Entidade Service
+use PDO;
+use PDOException;
+use InvalidArgumentException;
+use DomainException;
+
 class ServiceRepository {
     private PDO $pdo;
 

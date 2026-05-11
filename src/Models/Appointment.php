@@ -1,4 +1,9 @@
 <?php
+namespace App\Models;
+
+use DateTime;
+use InvalidArgumentException;
+use DomainException;
 
 class Appointment {
     // atributos de indentificação e estrutura

@@ -1,4 +1,12 @@
 <?php
+namespace App\Repositories;
+
+use App\Models\User; 
+use PDO;
+use PDOException;
+use InvalidArgumentException;
+use DomainException;
+
 class UserRepository {
     private PDO $pdo;
 

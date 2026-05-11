@@ -1,11 +1,22 @@
 <?php
+namespace Tests\Integration\Repositories;
+
 use PHPUnit\Framework\TestCase;
+use App\Repositories\AppointmentRepository;
+use App\Repositories\UserRepository;
+use App\Repositories\ServiceRepository;
+use App\Models\Appointment;
+use App\Models\User;
+use App\Models\Service;
+use App\Database\Database;
+use PDO;
+use DateTime;
 
 class AppointmentRepositorytest extends TestCase {
     private PDO $pdo;
     private UserRepository $userRepo;
     private ServiceRepository $serviceRepo;
-    private Appointment $appointmentRepo;
+    private AppointmentRepository $appointmentRepo;
 
     // ID de registro criados nos testes (para limpeza depois)
     private array $createUserIds = [];

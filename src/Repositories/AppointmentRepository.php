@@ -1,4 +1,15 @@
 <?php
+namespace App\Repositories;
+
+use App\Models\Appointment;
+use App\Models\User;
+use App\Models\Service;
+use PDO;
+use PDOException;
+use DateTime;
+use InvalidArgumentException;
+use DomainException;
+
 class AppointmentRepository {
     private PDO $pdo;
     private UserRepository $userRepo;

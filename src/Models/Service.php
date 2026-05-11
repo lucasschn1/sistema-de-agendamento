@@ -1,4 +1,8 @@
 <?php
+namespace App\Models;
+
+use DateTime;
+use InvalidArgumentException;
 
 class Service {
     private int $id;

@@ -1,4 +1,8 @@
-<?php 
+<?php
+namespace App\Models;
+
+use DateTime;
+
 Class User {
     private int $id;
     private string $name;
