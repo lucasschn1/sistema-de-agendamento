@@ -147,7 +147,7 @@ class UserRepository {
 
     /**
      *  Busca profissionais por tipo
-     *  @param string $type 'Psicólogo', 'Psicopedagogo'
+     *  @param string $professionalType 'Psicólogo', 'Psicopedagogo'
      *  @return User[]
      */
 
@@ -209,7 +209,6 @@ class UserRepository {
      *  Cria um novo paciente
      *  @throws InvalidArgumentException se os dados forem inválidos
      *  @throws DomainException se ocorrer um erro de domínio (ex: email já existe)
-     *  @return User - o usuário criado
      */
 
     public function createPatient(User $user): int {
@@ -224,7 +223,6 @@ class UserRepository {
      *  Cria um novo profissional (psicologo, psicopedagogo)
      *  @throws InvalidArgumentException se os dados forem inválidos
      *  @throws DomainException se ocorrer um erro de domínio (ex: email já existe)
-     *  @return User - o usuário criado
      */
 
     public function createProfessional(User $user): int {
@@ -243,8 +241,7 @@ class UserRepository {
     /**
      *  Cria um novo admin
      *  @throws InvalidArgumentException se os dados forem inválidos
-     *  @throws DomainException se ocorrer um erro de domínio (ex: email já existe)
-     *  @return User - o usuário criado
+     *  @throws DomainException se ocorrer um erro de domínio (ex: email já existe)o usuário criado
      */
 
     public function createAdmin(User $user): int {
@@ -270,12 +267,12 @@ class UserRepository {
         }
 
         try {
-            $sql = "INSERT  INTO user (
+            $sql = "INSERT  INTO users (
                     name, email, password, cpf, phone, birthdate, role,
                     professional_type, council_id, specialty, bio, active
-                    VALUES (
+                    ) VALUES (
                            :name, :email, :password, :cpf, :phone, :birthdate, :role,
-                           :professional_type, :council_id, :specialty, :bio, :active'
+                           :professional_type, :council_id, :specialty, :bio, :active
                            )";
 
             $stmt = $this->pdo->prepare($sql);
@@ -370,7 +367,7 @@ class UserRepository {
 
     /**
      *  Atualiza apenas a senha do usuario
-     *  @param int $UserId
+     *  @param int $userId
      *  @param string $newPlainPassword - Senha em texto puro (sera hasheada)
      */
 

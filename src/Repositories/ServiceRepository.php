@@ -31,7 +31,7 @@ class ServiceRepository {
             $sql = "SELECT * FROM services WHERE id = :id";
 
             if (!$includeDeleted) {
-                $sql .= " AND deleted IS NULL";
+                $sql .= " AND deleted_at IS NULL";
             }
 
             $stmt = $this->pdo->prepare($sql);

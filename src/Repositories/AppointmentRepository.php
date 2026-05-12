@@ -111,7 +111,7 @@ class AppointmentRepository {
      * Busca agendamentos por periodo
      * @param DateTime $startDate (data inicial)
      * @param DateTime $endDate (data final)
-     * @return Appointmet[]
+     * @return Appointment[]
      */
     public function findByDateRange(DateTime $startDate, DateTime $endDate, bool $loadRelations = true): array {
         try {
@@ -221,7 +221,7 @@ class AppointmentRepository {
                     AND status IN ('scheduled', 'confirmed')
                     AND deleted_at IS NULL
                     ORDER BY start_time
-                    LIMIT: limit";
+                    LIMIT :limit";
             
             $stmt = $this->pdo->prepare($sql);
             $stmt->bindValue(':limit', $limit , PDO::PARAM_INT);
@@ -439,7 +439,7 @@ class AppointmentRepository {
     public function cancel(int $appointmentId, ?string $reason = null): bool {
         try {
             $sql = "UPDATE appointments
-                    SET status = 'cancelled', 'cancellattion_reason = :reason
+                    SET status = 'cancelled', cancellation_reason = :reason
                     WHERE id = :id
                     AND status IN ('scheduled', 'confirm')
                     AND deleted_at IS NULL";
@@ -459,7 +459,7 @@ class AppointmentRepository {
             return true;
 
         } catch (PDOException $e) {
-            error_log("Erro ao cancelar agendamento: " , $e->getMessage());
+            error_log("Erro ao cancelar agendamento: " . $e->getMessage());
             throw $e;
         }
     }
@@ -470,9 +470,9 @@ class AppointmentRepository {
     public function markAsNoShow(int $appointmentId, ?string $reason = null) : bool {
         try {
             $sql = "UPDATE appointments
-            SET status = 'no-show', cancellation_reason = :reason
-            WHERE id = id:
-            AND status IN ('schedeled', 'confirmed')
+            SET status = 'no_show', cancellation_reason = :reason
+            WHERE id = :id
+            AND status IN ('scheduled', 'confirmed')
             AND deleted_at IS NULL";
 
         $stmt = $this->pdo->prepare($sql);
@@ -490,7 +490,7 @@ class AppointmentRepository {
         return true;
 
         } catch (PDOException $e) {
-            error_log("Erro ao marcar como no-show: " , $e->getMessage());
+            error_log("Erro ao marcar como no-show: " . $e->getMessage());
             throw $e;
         }
     }

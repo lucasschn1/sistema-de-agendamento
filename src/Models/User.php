@@ -4,7 +4,7 @@ namespace App\Models;
 use DateTime;
 
 Class User {
-    private int $id;
+    private ?int $id;
     private string $name;
     private string $email;
     private string $password;
@@ -39,7 +39,7 @@ Class User {
         $this->cpf = $data['cpf'] ?? '';
         $this->phone = $data['phone'] ?? '';
 
-        $this->birthdate = $data['birthdate'] ?? '';
+        $this->birthdate = isset($data['birthdate']) ? self::parseDate($data['birthdate']) : null; 
 
         $this->role = $data['role'] ?? 'patient'; // default para paciente
 
@@ -153,7 +153,7 @@ Class User {
        ============================================================================== 
     */ 
 
-       //  converte string de data do banco para DateTime (pode ser nulo)
+    //  converte string de data do banco para DateTime (pode ser nulo)
     private static function parseDate(?string $dvalue): ?DateTime {
         if (empty($value)) return null;
 

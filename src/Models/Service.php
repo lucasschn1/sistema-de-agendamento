@@ -5,9 +5,9 @@ use DateTime;
 use InvalidArgumentException;
 
 class Service {
-    private int $id;
+    private ?int $id;
     private string $name;
-    private string $description;
+    private ?string $description;
     private float $price;
     private int $duration_minutes;
     private string $category;
