@@ -10,6 +10,7 @@ use App\Models\User;
 use DomainException;
 use InvalidArgumentException;
 use UserNotFoundException;
+use UserHasFutureAppointmentsException;
 
 /**
  * Camada de Serviço para gerenciamento de usuários
@@ -268,7 +269,119 @@ class UserService {
         return $this->userRepo->updatePassword($userId, $newPassword);
     }
 
+    /**
+     * Redefine a senha (sem verificar senha atual - uso administrativo)
+     * 
+     * @param int $userId
+     * @param string $newPassword
+     * @throws UserNotFoundException
+     * @throws WeakPasswordException
+     * @return bool
+     */
+    public function resetPassword(int $userId, string $newPassword): bool {
+        // busca usuário no banco de dados
+        $user = $this->userRepo->findById($userId);
 
+        if (!$user) {
+            throw new UserNotFoundException($userId);
+        }
+
+        // valida a senha nova
+        $this->validatePassword($newPassword);
+
+        // atualiza
+        return $this->userRepo->updatePassword($userId, $newPassword);
+    }
+
+    // =========================================================
+    // DESATIVAÇÃO E DELEÇÃO
+    // =========================================================
+
+    /**
+     * Desativa usuário (soft delete)
+     * 
+     * IMPORTANTE: usa a stored procedure 'sp_delete_user' que verifica
+     * se há algum agendamento futuro antes de permitir a desativação
+     * 
+     * @param int $userId
+     * @throws UserNotFoundException
+     * @throws UserHasFutureAppointmentsException 
+     * @return bool
+     */
+    public function deactivateUser(int $userId): bool {
+        // verifica se usuário existe
+        $user = $this->userRepo->findById($userId);
+
+        if (!$user) {
+            throw new UserNotFoundException($userId);
+        }
+
+        try {
+            // chama repository que usa sp_delete_user
+            return $this->userRepo->delete($userId);
+        } catch (DomainException $e) {
+            if (str_contains($e->getMessage(), 'agendamentos futuros')) {
+                throw new UserHasFutureAppointmentsException();
+            }
+            throw $e;
+        }
+    }
+
+    /**
+     * Restaura usuária desativado
+     * 
+     * @param int $userId
+     * @throws UserNotFoundException
+     * @return bool
+     */
+    public function reactivateUser(int $userId): bool {
+        try {
+            return $this->userRepo->restore($userId);
+
+        } catch(DomainException $e) {
+            throw new UserNotFoundException($userId);
+        }
+    }
+
+    // =========================================================
+    // CONSULTAS E BUSCAS
+    // =========================================================
+
+    /**
+     * Busca usuário por ID
+     * 
+     * @param int $userId
+     * @param bool $includeDeleted
+     * @throws UserNotFoundException
+     * @return User
+     */
+    public function getUserById(int $userId, bool $includeDeleted = false): User {
+        $user = $this->userRepo->findById($userId);
+
+        if (!$user) {
+            throw new UserNotFoundException($userId);
+        }
+
+        return $user;
+    }
+
+    /**
+     * Busca usuário por email
+     * 
+     * @param string $email
+     * @throws UserNotFoundException
+     * @return User
+     */
+    public function getUserByEmail(string $email): User {
+        $user = $this->userRepo->findByEmail($email);
+
+        if (!$user) {
+            throw new UserNotFoundException(0);
+        }
+
+        return $user;
+    }
+    
 
     // =========================================================
     // MÉTODOS PRIVADOS - VALIDAÇÕES
