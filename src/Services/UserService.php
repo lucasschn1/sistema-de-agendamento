@@ -8,7 +8,10 @@ use WeakPasswordException;
 use ValidationException;
 use App\Models\User;
 use DomainException;
+use InactiveUserException;
 use InvalidArgumentException;
+use InvalidUserRoleException;
+use UnauthorizedException;
 use UserNotFoundException;
 use UserHasFutureAppointmentsException;
 
@@ -381,7 +384,134 @@ class UserService {
 
         return $user;
     }
-    
+
+    /**
+     * Lista todos os pacientes ativos
+     * 
+     * @param bool $activeOnly
+     * @return User[]
+     */
+    public function getAllPatients(bool $activeOnly = true): array {
+        return $this->userRepo->getAllPatientes($activeOnly);
+    }
+
+    /**
+     * Lista todos profissionais ativos
+     * 
+     * @param bool $activeOnly
+     * @return User[]
+     */
+    public function getAllProfessionals(bool $activeOnly = true): array {
+        return $this->userRepo->getAllProfessionals($activeOnly);
+    }
+
+    /**
+     * Busca profissionais por tipo
+     * 
+     * @param string $professionalType Ex: 'Psicólogo', 'Psicopedagogo'
+     * @param bool $activeOnly
+     * @return User[]
+     */
+    public function getProfessionalByType(string $professionalType, bool $activeOnly = true): array {
+        return $this->userRepo->findProfessionalsByType($professionalType, $activeOnly);
+    }
+
+    /**
+     * Busca usuários por nome (busca parcial)
+     * 
+     * @param string $name
+     * @param bool $activeOnly
+     * @return User[]
+     */
+    public function searchByName(string $name, bool $activeOnly = true): array {
+        if (strlen($name) > 2) {
+            throw new ValidationException(['name' => 'Nome deve ter pelo menos 2 caracteres']);
+        }
+
+        return $this->userRepo->searchByName($name, $activeOnly);
+    }
+
+    // =========================================================
+    // AUTENTICAÇÃO
+    // =========================================================
+
+    /**
+     * Autentica usuário por email e senha
+     * 
+     * @param string $email
+     * @param string $password Senha tem texto puro
+     * @throws InvalidEmailException
+     * @throws InvalidArgumentException Se credenciais inválidas
+     * @throws InactiveUserException  Se usuário está desativado
+     * @return User
+     */
+    public function authenticate(string $email, string $password): User {
+        // valida formato do email
+        $this->validateEmail($email);
+
+        try {
+            $user = $this->userRepo->authenticate($email, $password);
+
+            if (!$user) {
+                throw new InvalidArgumentException('E-mail ou senha incorretos');
+            }
+
+            return $user;
+
+        } catch (DomainException $e) {
+            // repositório lança DomainException se usuário estiver desativado
+            if (str_contains($e->getMessage(),'desativado')) {
+                throw new InactiveUserException();
+            }
+            throw $e;
+        }
+    }
+
+    // =========================================================
+    // VALIDAÇÕES E REGRAS DE NEGÓCIO
+    // =========================================================
+ 
+    /**
+     * Valida se um usuário pode ser usado em um agendamento
+     * 
+     * @param int $userId
+     * @param string $expectedRole 'patient' ou 'professional'
+     * @throws UserNotFoundException
+     * @throws InactiveUserException
+     * @throws InvalidUserRoleException
+     * @return User
+     */
+    public function validateUserForAppointment(int $userId, string $expectedRole): User {
+        $user = $this->userRepo->findById($userId);
+
+        if (!$user) {
+            throw new UserNotFoundException($userId);
+        }
+
+        if (!$user->isActive()) {
+            $type = $expectedRole === 'patient' ? 'Paciente' : 'Profissional';
+            throw new InactiveUserException($type);
+        }
+
+        if ($user->getRole() !== $expectedRole) {
+            throw new InvalidUserRoleException($expectedRole, $user->getRole());
+        }
+
+        return $user;
+    }
+
+    /**
+     * Verifica se usuário tem  permissão de admin
+     * 
+     * @param User $user
+     * @throws UnauthorizedException;
+     * @return void
+     */
+    public function requireAdmin(User $user): void {
+        if (!$user->isAdmin()) {
+            throw new UnauthorizedException('executar ação administrativa');
+        }
+    }
 
     // =========================================================
     // MÉTODOS PRIVADOS - VALIDAÇÕES
