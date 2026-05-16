@@ -2,6 +2,7 @@
 
 use App\Models\Service;
 use App\Repositories\ServiceRepository;
+use ProcedureNotFoundException;
 
 /**
  * ProcedureService - camada de serviço para gerenciamento de Procedures/Serviços
@@ -92,8 +93,146 @@ class ProcedureService {
     public function updateProcedure(int $procedureId, array $data): bool {
         // Busca procedimento existente
         $service = $this->procedureRepository->findById($procedureId);
+
+        if (!$service) {
+            throw new ProcedureNotFoundException($procedureId);
+        }
+
+        //valida price se fornecido
+        if (isset($data['price'])) {
+            $this->validatePrice($data['price']);
+        }
+
+        // valida duration se fornecido
+        if (isset($data['duration_minute'])) {
+            $this->validateDuration($data['duration_minutes']);
+        }
+
+        $data = $this->sanitizeProcedureData($data);
+
+        // merge com dados existentes
+        $updateData = array_merge($service->toArray(), $data);
+        $updateData['id'] = $procedureId; // garante que o Id não mude  
+
+        // cria novo Service object com dados atualizados
+        $updateService = new Service($updateData);
+
+        try {
+            return $this->procedureRepository->update($updateService);
+        } catch (DomainException $e) {
+            // duplicidade de nome
+            throw $e;
+        }
     }
 
+    /**
+     * Atualiza apenas o preço de um Service
+     * 
+     * @param int $procedureId
+     * @param float $newPrice
+     * @throws ProcedureNotFoundExcepetion
+     * @throws InvalidPriceException
+     * @return bool
+     */
+    public function updatePrice(int $procedureId, float $newPrice): bool {
+        // verifica se procedimento existe
+        if (!$this->procedureRepository->findById($procedureId)) {
+            throw new ProcedureNotFoundException($procedureId);
+        }
+
+        // valida preço 
+        $this->validatePrice($newPrice);
+
+        return $this->procedureRepository->updatePrice($procedureId, $newPrice);
+    }
+
+    // =========================================================
+    // ATIVAÇÃO E DESATIVAÇÃO
+    // =========================================================
+
+    /**
+     * Ativa um procedimento/serviço
+     * 
+     * @param int $procedureId
+     * @throws ProcedureNotFoundException
+     * @return bool
+     */
+    public function activateProcedure(int $procedureId): bool {
+        // verifica se procedimento existe
+        if (!$this->procedureRepository->findById($procedureId)) {
+            throw new ProcedureNotFoundException($procedureId);
+        }
+
+        return $this->procedureRepository->activate($procedureId);
+    }
+
+    /**
+     * Desativa um procedimento (soft delete)
+     * 
+     * REGRA DE NEGÓCIO:
+     * Não premite desativar se existirem recorrências ativas usando esse procedimento
+     * Agendamentos únicos já realizados não impedem a desativação
+     * 
+     * @param int $procedureId
+     * @throws ProcedureNotFoundException
+     * @throws PrcedureInUseException Se há recorrências ativas
+     * @return bool
+     */
+    public function deactivateProcedure(int $procedureId): bool {
+        // verifica se procedimento existe
+        $service = $this->procedureRepository->findById($procedureId);
+
+        if (!$service) {
+            throw new ProcedureNotFoundException($procedureId);
+        }
+
+        // verifica se há recorrências usando esse procedimento
+        if ($this->hasActiveRecurrences($procedureId)) {
+            throw new ProcedureInUseException();
+        }
+
+        // Desativa (soft delete)
+        return $this->procedureRepository->delete($procedureId);
+    }
+
+    /**
+     * Restaura um procedimento desativao
+     * 
+     * @param int $procedureId
+     * @throws ProcedureNotFoundException
+     * @return bool
+     */
+    public function reactivateProcedure($procedureId): bool {
+        try {
+            return $this->procedureRepository->restore($procedureId);
+
+        } catch(InvalidArgumentException $e){
+
+            throw new ProcedureNotFoundException($procedureId);
+        }
+    }
+
+    // =========================================================
+    // CONSULTAS E BUSCAS
+    // =========================================================
+
+    /**
+     * Busca procedimento por ID
+     * 
+     * @param int $procedureId
+     * @param bool $includeDeleted
+     * @throws ProcedureNotFoundException
+     * @return Service
+     */
+    public function getProcedureById(int $procedureId, bool $includeDeleted = false): Service {
+        $service = $this->procedureRepository->findById($procedureId, $includeDeleted);
+
+        if (!$service) {
+            throw new ProcedureNotFoundException($procedureId);
+        }
+
+        return $service;
+    }
 
 }
 ?>
