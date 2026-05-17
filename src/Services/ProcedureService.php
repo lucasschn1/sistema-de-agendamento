@@ -3,6 +3,8 @@
 use App\Models\Service;
 use App\Repositories\ServiceRepository;
 use ProcedureNotFoundException;
+use InvalidDurationException;
+use ProcedureInUseException;
 
 /**
  * ProcedureService - camada de serviço para gerenciamento de Procedures/Serviços
@@ -87,7 +89,7 @@ class ProcedureService {
      * @param array $data Dados a atualizar
      * @throws ProcedureNotFoundException
      * @throws InvalidPriceException
-     * @throws InvalidDurantionException
+     * @throws InvalidDurationException
      * @return bool
      */
     public function updateProcedure(int $procedureId, array $data): bool {
@@ -130,7 +132,7 @@ class ProcedureService {
      * 
      * @param int $procedureId
      * @param float $newPrice
-     * @throws ProcedureNotFoundExcepetion
+     * @throws ProcedureNotFoundException
      * @throws InvalidPriceException
      * @return bool
      */
@@ -175,7 +177,7 @@ class ProcedureService {
      * 
      * @param int $procedureId
      * @throws ProcedureNotFoundException
-     * @throws PrcedureInUseException Se há recorrências ativas
+     * @throws ProcedureInUseException Se há recorrências ativas
      * @return bool
      */
     public function deactivateProcedure(int $procedureId): bool {
@@ -232,6 +234,56 @@ class ProcedureService {
         }
 
         return $service;
+    }
+
+    /**
+     * Lista de todos os procedimentos ativos
+     * 
+     * @return Service[]
+     */
+    public function getAllActiveProcedures(): array {
+        return $this->procedureRepository->getAllActive();
+    }
+
+    /**
+     * Lista todos os procedimentos (incluindo inativos)
+     * 
+     * @param bool $includeDeleted
+     * @return Service[]
+     */
+    public function getAllProcedures($includeDeleted = false): array {
+        return $this->procedureRepository->getAll($includeDeleted);
+    }
+
+    /**
+     * Busca procedimento por categoria
+     * 
+     * @param string $category
+     * @param bool $activeOnly
+     * @return Service[]
+     */
+    public function getProcedureByCategory(string $category, bool $activeOnly = true): array {
+        return $this->procedureRepository->findByCategory($category, $activeOnly);
+    }
+
+    /**
+     * Busca procedimentos por faixa de preço
+     * 
+     * @param float $minPrice
+     * @param float $maxPrice
+     * @param bool $activeOnly
+     * @return Service[]
+     */
+    public function getProcedureByPriceRange(float $minPrice, float $maxPrice, bool $activeOnly = true) {
+        // valida preços
+        $this->validatePrice($minPrice);
+        $this->validatePrice($maxPrice);
+
+        if ($minPrice > $maxPrice) {
+            throw new ValidationException(['price' => 'Preço mínimo não pode ser maior que preço máximo']);
+        }
+
+        return $this->procedureRepository->findByPriceRange($minPrice, $maxPrice, $activeOnly);
     }
 
 }

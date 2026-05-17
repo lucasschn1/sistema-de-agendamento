@@ -299,7 +299,7 @@ class Appointment {
 
     public function toArray(): array { // para uso interno: persistência, manipulação, etc
         return [
-               'id'                   => $this->id,
+            'id'                   => $this->id,
             'patient_id'           => $this->patientId,
             'professional_id'      => $this->professionalId,
             'service_id'           => $this->serviceId,
