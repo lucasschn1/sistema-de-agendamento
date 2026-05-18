@@ -286,5 +286,41 @@ class ProcedureService {
         return $this->procedureRepository->findByPriceRange($minPrice, $maxPrice, $activeOnly);
     }
 
+    /**
+     * Busca procedimento por duração
+     * 
+     * @param int $durationMinutes
+     * @param bool $activeOnly
+     * @return Service[]
+     */
+    public function getProcedureByDuration(int $durationMinutes, bool $activeOnly = true): array {
+        $this->validateDuration($durationMinutes);
+
+        return $this->procedureRepository->findByDuration($durationMinutes, $activeOnly);
+    }
+
+    /**
+     * Busca procedimentos por nome ou descrição (busca parcial)
+     * 
+     * @param string $query
+     * @param bool $activeOnly
+     * @return Service[]
+     */
+    public function searchProcedures(string $query, bool $activeOnly = true): array {
+        if (strlen($query) < 2) {
+            throw new ValidationException(['query' => 'Busca deve ter pelo menos 2 caracteres']);
+        }
+
+        return $this->procedureRepository->search($query, $activeOnly);
+    }
+
+    /**
+     * Lista todas as categorias disponíveis
+     * 
+     * @return string[]
+     */
+    public function getAllCategories(): array {
+        return $this->procedureRepository->getAllCategories();
+    }
 }
 ?>
