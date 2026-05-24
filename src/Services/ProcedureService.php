@@ -287,26 +287,42 @@ class ProcedureService {
     }
 
     /**
+<<<<<<< HEAD
      * Busca procedimento por duração
+=======
+     * Busca procedimentos por duração
+>>>>>>> b9a06b6 (WIP ProcedureService (validações))
      * 
      * @param int $durationMinutes
      * @param bool $activeOnly
      * @return Service[]
      */
     public function getProcedureByDuration(int $durationMinutes, bool $activeOnly = true): array {
+<<<<<<< HEAD
+=======
+        // valida duração
+>>>>>>> b9a06b6 (WIP ProcedureService (validações))
         $this->validateDuration($durationMinutes);
 
         return $this->procedureRepository->findByDuration($durationMinutes, $activeOnly);
     }
 
     /**
+<<<<<<< HEAD
      * Busca procedimentos por nome ou descrição (busca parcial)
+=======
+     * Busca por nome ou descrição (busca parcial)
+>>>>>>> b9a06b6 (WIP ProcedureService (validações))
      * 
      * @param string $query
      * @param bool $activeOnly
      * @return Service[]
      */
+<<<<<<< HEAD
     public function searchProcedures(string $query, bool $activeOnly = true): array {
+=======
+    public function searchProcedure(string $query, bool $activeOnly = true): array {
+>>>>>>> b9a06b6 (WIP ProcedureService (validações))
         if (strlen($query) < 2) {
             throw new ValidationException(['query' => 'Busca deve ter pelo menos 2 caracteres']);
         }
@@ -322,5 +338,97 @@ class ProcedureService {
     public function getAllCategories(): array {
         return $this->procedureRepository->getAllCategories();
     }
+<<<<<<< HEAD
+=======
+
+    // =========================================================
+    // VALIDAÇÕES E REGRAS DE NEGÓCIO
+    // =========================================================
+
+    /**
+     * Valida se um procedimento pode ser usado em um agendamento
+     * 
+     * @param int $procedureId
+     * @throws ProcedureNotFoundException
+     * @throws InactiveProcedureException
+     * @return Service
+     */
+    public function validateProcedureForAppointment(int $procedureId): Service {
+        $service = $this->procedureRepository->findById($procedureId);
+
+        if (!$service) {
+            throw new ProcedureNotFoundException($procedureId);
+        }
+
+        if (!$service->isActive()) {
+            throw new InactiveProcedureException();
+        }
+
+        return $service;
+    }
+
+    /**
+     * Verifica se procedimento tem recorrência ativa
+     * 
+     * REGRA DE NEGÓCIO:
+     * Recorrências ativas são aquelas que ainda tem sessões futuras agendadadas
+     * 
+     * @param int $procedureId
+     * @return bool
+     */
+    public function hasActiveRecurrences(int $procedureId): bool {
+        try {
+            // consulta recorrência ativa usando este procedimento
+            // que ainda tem agendamento futuro não cancelados
+
+            $sql = "SELECT COUNT(DISTINCT rg.id)
+                    FROM recurrence_group rg
+                    INNER JOIN appointments a ON a.recurrence_group_id = rg.id
+                    WHERE rg.service_id = :service_id
+                        AND rg.active = 1
+                        AND a.start_time >= NOW()
+                        AND a.status NOT IN ('cancelled', 'no_show')
+                        AND a.deleted_at IS NULL";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute(['service_id' => $procedureId]);
+
+            return (int) $stmt->fetchColumn() > 0;
+
+        } catch (PDOException $e) {
+            error_log("Erro ao verificar recorrências ativas: " . $e->getMessage());
+            // Em caso de recorrência bloqueia a desativação por segurança
+            return true;
+        }
+    }
+
+    // =========================================================
+    // MÉTODOS PRIVADOS - VALIDAÇÕES
+    // =========================================================
+
+    /**
+     * Valida campos obrigatórios
+     * 
+     * @param array $data
+     * @param array $requiredFields
+     * @throws ValidationException
+     * @return void
+     */
+    private function validateRequiredFields(array $data, array $requiredFields): void {
+        $missing = [];
+
+        foreach ($requiredFields as $field) {
+            if (!isset($data[$field]) || (is_string($data[$field])) && trim($data[$field] == '')) {
+                $missing[$field] = "Campo {$field} é obrigatório";
+            }
+        }
+
+        if (!empty($missing)) {
+            throw new ValidationException($missing);
+        }
+    }
+
+
+>>>>>>> b9a06b6 (WIP ProcedureService (validações))
 }
 ?>
