@@ -53,7 +53,7 @@ class ProcedureService {
      */
     public function createProcedure(array $data): int {
         // validação de campos obrigatórios
-        $this->validateRequiredFields($data, ['name'], ['price'], ['duration_minutes']);
+        $this->validateRequiredFields($data, ['name', 'price', 'duration_minutes']);
 
         // validação de regras de negócios
         $this->validatePrice($data['price']);
@@ -301,7 +301,7 @@ class ProcedureService {
 
     /**
      * Busca procedimentos por nome ou descrição (busca parcial)
-     * * @param string $query
+     * @param string $query
      * @param bool $activeOnly
      * @return Service[]
      */
@@ -315,7 +315,7 @@ class ProcedureService {
 
     /**
      * Lista todas as categorias disponíveis
-     * * @return string[]
+     * @return string[]
      */
     public function getAllCategories(): array {
         return $this->procedureRepository->getAllCategories();
@@ -401,6 +401,176 @@ class ProcedureService {
 
         if (!empty($missing)) {
             throw new ValidationException($missing);
+        }
+    }
+
+    /**
+     * Valida preço
+     * 
+     * REGRA: preço deve ser >= 0 (permite procedimentos gratuitos)
+     * 
+     * @param float $price
+     * @throws InvalidPriceException
+     * @return void
+     */
+    private function validatePrice(float $price): void {
+        if ($price < 0) {
+            throw new InvalidPriceException();
+        }
+
+        // limite máximo de preço (ex: R$ 10.000)
+        if ($price > 10000) {
+            throw new ValidationException(['price' => 'Preço não pode ultrapassar R$ 10.000,00']);
+        }
+    }
+
+    /**
+     * Valida duração
+     * 
+     * REGRA: duração deve ser > 0
+     * 
+     * @param int $durationMinutes
+     * @throws InvalidDurationException
+     * @return void
+     */
+    private function validateDuration(int $durationMinutes): void {
+        if ($durationMinutes <= 0 ){
+            throw new InvalidDurationException();
+        }
+
+         // limite máximo de duração (ex: 8 horas = 480 minutos)
+        if ($durationMinutes > 480) {
+            throw new ValidationException(['duration' => 'Duração não pode ultrapassar 8 horas (480 minutos)']);
+        }
+    }
+
+    /**
+     * Sanitiza dados do procedimento
+     * 
+     * @param array $data
+     * @return array
+     */
+    private function sanitizeProcedureData(array $data): array {
+        // Trim 
+        if (isset($data['name'])) {
+            $data['name'] = trim($data['name']);
+        }
+
+        if (isset($data['description'])) {
+            $data['description'] = trim($data['description']);
+        }
+ 
+        if (isset($data['category'])) {
+            $data['category'] = trim($data['category']);
+        }
+
+        // Garante que price seja float
+        if (isset($data['price'])) {
+            $data['price'] = (float) $data['price'];
+        }
+ 
+        // Garante que duration seja int
+        if (isset($data['duration_minutes'])) {
+            $data['duration_minutes'] = (int) $data['duration_minutes'];
+        }
+ 
+        // Garante que active seja bool (se presente)
+        if (isset($data['active'])) {
+            $data['active'] = (bool) $data['active'];
+        }
+ 
+        return $data;
+ 
+    }
+
+    // =========================================================
+    // ESTATÍSTICAS E RELATÓRIOS
+    // =========================================================
+
+    /**
+     * Retorna estatísticas gerais dos procedimentos
+     * 
+     * @return array
+     */
+    public function getProcedureStats(): array {
+        return [
+            'total_active' => $this->procedureRepository->count(true, false),
+            'total_inactive' => $this->procedureRepository->count(false, false) 
+                                - $this->procedureRepository->count(true, false),
+            'total_categories' => count($this->getAllCategories()),
+
+        ];
+    }
+
+    /**
+     * Retorna os procedimentos mais utulizados (com mais agendamentos)
+     * 
+     * @param int $limit
+     * @return array Array associativo com dados agregados
+     */
+    public function getMostUsedProcedure(int $limit = 10): array {
+        if ($limit <= 0 || $limit > 100) {
+            throw new ValidationException(['limit' => 'Limite deve estar entre 1 e 100']);
+        }
+
+        return $this->procedureRepository->getMostUsed($limit);
+    }
+
+    /**
+     * Calcula ticket médio por categoria
+     * 
+     * @return array ['categoria' => float (média de preços)]
+     */
+    public function getAveragePriceByCategory(): array {
+        $categories = $this->getAllCategories();
+
+        $average = [];
+
+        foreach ($categories as $category) {
+            $procedures = $this->getProcedureByCategory($category, true);
+
+            if (empty($procedures)) {
+                continue;
+            }
+
+            $total = 0;
+            $count = count($procedures);
+
+            foreach ($procedures as $procedure) {
+                $total += $procedure->getPrice();
+            }
+
+            $average[$category] = $count > 0 ? round($total / $count, 2) : 0;
+        }
+
+        return $average;
+    }
+
+    /**
+     * Retorna procedimentos que nunca foram agendados
+     * 
+     * @return Service[]
+     */
+
+    public function getUnusedProcedures(): array {
+        try {
+            $sql = "SELECT s.*
+                    FROM services s
+                    LEFT JOIN appointments a on s.id = a.service_id AND a.deleted_at IS NULL
+                    WHERE s.deleted_at is NULL
+                    AND s.active = 1
+                    AND a.id IS NULL
+                    ORDER BY s.created_at DESC";
+
+            $stmt = $this->pdo->query($sql);
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            return array_map(fn($data) => new Service($data), $results);
+
+        } catch (PDOException $e) {
+            error_log("Erro ao buscar procedimentos não utilizados: " . $e->getMessage());
+
+            return [];
         }
     }
 }
