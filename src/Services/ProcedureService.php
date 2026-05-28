@@ -287,42 +287,25 @@ class ProcedureService {
     }
 
     /**
-<<<<<<< HEAD
-     * Busca procedimento por duração
-=======
      * Busca procedimentos por duração
->>>>>>> b9a06b6 (WIP ProcedureService (validações))
-     * 
      * @param int $durationMinutes
      * @param bool $activeOnly
      * @return Service[]
      */
     public function getProcedureByDuration(int $durationMinutes, bool $activeOnly = true): array {
-<<<<<<< HEAD
-=======
         // valida duração
->>>>>>> b9a06b6 (WIP ProcedureService (validações))
         $this->validateDuration($durationMinutes);
 
         return $this->procedureRepository->findByDuration($durationMinutes, $activeOnly);
     }
 
     /**
-<<<<<<< HEAD
      * Busca procedimentos por nome ou descrição (busca parcial)
-=======
-     * Busca por nome ou descrição (busca parcial)
->>>>>>> b9a06b6 (WIP ProcedureService (validações))
-     * 
-     * @param string $query
+     * * @param string $query
      * @param bool $activeOnly
      * @return Service[]
      */
-<<<<<<< HEAD
     public function searchProcedures(string $query, bool $activeOnly = true): array {
-=======
-    public function searchProcedure(string $query, bool $activeOnly = true): array {
->>>>>>> b9a06b6 (WIP ProcedureService (validações))
         if (strlen($query) < 2) {
             throw new ValidationException(['query' => 'Busca deve ter pelo menos 2 caracteres']);
         }
@@ -332,14 +315,11 @@ class ProcedureService {
 
     /**
      * Lista todas as categorias disponíveis
-     * 
-     * @return string[]
+     * * @return string[]
      */
     public function getAllCategories(): array {
         return $this->procedureRepository->getAllCategories();
     }
-<<<<<<< HEAD
-=======
 
     // =========================================================
     // VALIDAÇÕES E REGRAS DE NEGÓCIO
@@ -347,7 +327,6 @@ class ProcedureService {
 
     /**
      * Valida se um procedimento pode ser usado em um agendamento
-     * 
      * @param int $procedureId
      * @throws ProcedureNotFoundException
      * @throws InactiveProcedureException
@@ -369,10 +348,8 @@ class ProcedureService {
 
     /**
      * Verifica se procedimento tem recorrência ativa
-     * 
      * REGRA DE NEGÓCIO:
      * Recorrências ativas são aquelas que ainda tem sessões futuras agendadadas
-     * 
      * @param int $procedureId
      * @return bool
      */
@@ -408,7 +385,6 @@ class ProcedureService {
 
     /**
      * Valida campos obrigatórios
-     * 
      * @param array $data
      * @param array $requiredFields
      * @throws ValidationException
@@ -427,8 +403,7 @@ class ProcedureService {
             throw new ValidationException($missing);
         }
     }
-
-
->>>>>>> b9a06b6 (WIP ProcedureService (validações))
 }
 ?>
+
+  
