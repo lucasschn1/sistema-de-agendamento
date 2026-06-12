@@ -130,6 +130,7 @@ class Appointment {
 
     public function isScheduled(): bool { return $this->status === 'scheduled'; }
     public function isConfirmed(): bool { return $this->status === 'confirmed'; }
+    public function isCompleted(): bool  { return $this->status === 'completed'; }
     public function isCancelled(): bool { return $this->status === 'cancelled'; }
     public function isNoShow(): bool { return $this->status === 'no_show'; }
 

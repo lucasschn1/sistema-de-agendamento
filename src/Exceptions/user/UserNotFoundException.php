@@ -1,4 +1,8 @@
 <?php
+namespace App\Exceptions\user;
+
+use App\Exceptions\BusinessException;
+
 class UserNotFoundException extends BusinessException {
     protected int $httpStatus = 404;
 

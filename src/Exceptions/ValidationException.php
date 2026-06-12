@@ -1,4 +1,8 @@
 <?php
+namespace App\Exceptions;
+
+use App\Exceptions\BusinessException;
+
 class ValidationException extends BusinessException
 {
     private array $errors;

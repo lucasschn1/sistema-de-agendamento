@@ -1,4 +1,8 @@
 <?php
+namespace App\Exceptions;
+
+use Exception;
+
 Abstract class BusinessException extends Exception {
     /**
      * Exceção base para todas as exceções de negócios

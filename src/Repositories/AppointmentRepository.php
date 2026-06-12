@@ -141,7 +141,7 @@ class AppointmentRepository {
      * Busca agendamentos de profissional em um dia especifico
      * @return Appointment[]
      */
-    public function findByProfessionalDate(int $professionalId, DateTime $date, bool $loadRelations = true): array {
+    public function findByProfessionalAndDate(int $professionalId, DateTime $date, bool $loadRelations = true): array {
         try {
             $sql = "SELECT * FROM appointments
                     WHERE professional_id = :professional_id

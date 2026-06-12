@@ -1,4 +1,8 @@
 <?php 
+namespace App\Exceptions\procedure;
+
+use App\Exceptions\BusinessException;
+
 class ProcedureNotFoundException extends BusinessException {
 
     public function __construct(int $procedureId) {

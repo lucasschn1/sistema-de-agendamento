@@ -1,4 +1,9 @@
 <?php
+
+namespace App\Exceptions\appointment;
+
+use App\Exceptions\BusinessException;
+
 class AppointmentNotFoundException extends BusinessException {
     protected int $httpStatusCode = 404;
 

@@ -1,4 +1,8 @@
 <?php
+namespace App\Exceptions\appointment;
+
+use App\Exceptions\BusinessException;
+
 class AppointmentConflictException extends BusinessException {
     protected int $httpStatusCode = 409; // conflit
 

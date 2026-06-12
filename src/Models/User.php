@@ -86,6 +86,10 @@ Class User {
         return $this->role === 'admin';
     }
 
+    public function isProfessional(): bool {
+        return $this->role === 'professional';
+    }
+
     // verifica se tem CRP 
     public function hasConcilId(): bool {
         return !empty($this->councilId);
