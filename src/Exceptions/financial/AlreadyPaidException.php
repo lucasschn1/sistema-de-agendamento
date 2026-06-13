@@ -1,4 +1,7 @@
 <?php
+namespace App\Exceptions\financial;
+
+use App\Exceptions\BusinessException;
  
 class AlreadyPaidException extends BusinessException
 {

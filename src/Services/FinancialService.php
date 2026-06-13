@@ -1,8 +1,14 @@
 <?php
+use App\Models\Appointment;
 
 use App\Exceptions\appointment\AppointmentNotFoundException;
 use App\Exceptions\ValidationException;
+use App\Exceptions\financial\AlreadyPaidException;
+use App\Exceptions\financial\InvalidPaymentStatusException;
+use App\Exceptions\financial\InvalidPaymentMethodException;
+
 use App\Repositories\AppointmentRepository;
+use DateTime;
 
 /**
  * FinancialService - Camada de Serviço para Gerenciamento Financeiro
@@ -23,7 +29,7 @@ class FinancialService {
      * Método de pagamentos aceitos pela clínica
      * Centralizados para fácil manuntenção
      */
-    private const ALLOWED_PAYMENT_METHOD = [
+    private const ALLOWED_PAYMENT_METHODS = [
         'PIX',
         'Dinheiro',
         'Cartão de Crédito',
@@ -44,7 +50,7 @@ class FinancialService {
      * 
      * @param int $appointmentId
      * @param string $method Método de pagamento
-     * @param string|DateTime|null (null = hoje)
+     * @param string|DateTime|null  - (null -> HOJE)
      * @throws AppointmentNotFoundException
      * @throws AlreadyPaidException
      * @throws InvalidPaymentMethodException
@@ -66,7 +72,7 @@ class FinancialService {
         $appointment = $this->appointmentRepository->findById($appointmentId, false);
 
         // 4 - verifica se foi pago
-        if ($appoitment->isPaid()) {
+        if ($appointment->isPaid()) {
             throw new AlreadyPaidException();
         }
 
@@ -91,7 +97,7 @@ class FinancialService {
         } catch (DomainException $e) {
             // traduz o erro do banco de dados
             if (str_contains($e->getMessage(), 'status do agendamento não permite')) {
-                throw new InvalidPaymentMethodException();
+                throw new InvalidPaymentStatusException();
             }
             throw $e;
         }
@@ -127,7 +133,7 @@ class FinancialService {
         }
 
         try {
-            $stmt = $this->appointmentRepository->undoPayment($appointment);
+            $stmt = $this->appointmentRepository->undoPayment($appointmentId);
 
             // TODO: registrar log de auditoria com $reason e usuário que executou
             // EX: AuditLogRepository::log('payment_undone', $appointmentId, $reason)
@@ -146,6 +152,282 @@ class FinancialService {
      * @return string[]
      */
     public function getAllowedPaymentMethods(): array {
-        return self::ALLOWED_PAYMENT_METHOD;
+        return self::ALLOWED_PAYMENT_METHODS;
+    }
+
+    // =========================================================
+    // RELATÓRIOS FINANCEIROS
+    // =========================================================
+
+    /**
+     * Lista todos os agendamentos com pagamentos pendentes
+     * 
+     * @param bool $loadRelations
+     * @return Appointment[]
+     */
+    public function getPendingPayment(bool $loadRelations = true): array {
+        return $this->appointmentRepository->getUnpaid($loadRelations);
+    }
+
+    /**
+     * Resumo financeiro de um período
+     * 
+     * @param DateTime $startDate
+     * @param DateTime $endDate
+     * @throws ValidationException Se intervalo for inválido ou maior que 1 ano
+     * @return array [
+     *   'period'           => string,
+     *   'total_scheduled'  => int,
+     *   'total_completed'  => int,
+     *   'total_cancelled'  => int,
+     *   'total_no_show'    => int,
+     *   'gross_revenue'    => float  (tudo que foi cobrado),
+     *   'received'         => float  (confirmado como pago),
+     *   'pending'          => float  (completado mas não pago),
+     *   'cancelled_value'  => float  (valor perdido por cancelamento),
+     *   'by_method'        => array  (breakdown por método de pagamento)
+     * ]
+     */
+    public function getSummaryByPeriod(DateTime $startDate, DateTime $endDate): array {
+        $this->validateDateRange($startDate, $endDate);
+
+        $appointments = $this->appointmentRepository->findByDateRange($startDate, $endDate, false);
+
+        $summary = [
+            'period'          => $startDate->format('d/m/Y') . 'a' . $endDate->format('d/m/Y'),
+            'total_scheduled' => 0,
+            'total_completed' => 0,
+            'total_cancelled' => 0,
+            'total_no_show'   => 0,
+            'gross_revenue'   => 0.0,
+            'received'        => 0.0,
+            'pending'         => 0.0,
+            'cancelled_value' => 0.0,
+            'by_method'       => [],
+        ];
+
+        foreach($appointments as $appointment) {
+            $summary['total_scheduled']++;
+
+            switch ($appointment->getStatus()) {
+                case 'completed' : 
+                    $summary['total_completed']++;
+                    $summary['gross_revenue'] += $appointment->getPrice();
+
+                    if($appointment->isPaid()) {
+                        $summary['received'] += $appointment->getPrice();
+
+                        // agrupa por método de pagamento
+                        $method = $appointment->getPaymentMethod() ?? 'Indefinido';
+                        $summary['by_method'][$method] = ($summary['by_method'][$method] ?? 0.0)
+                            + $appointment->getPrice();
+                    } else {
+                        $summary['pending'] += $appointment->getPrice();
+                    }
+                    break;
+                
+                case 'cancelled':
+                    $summary['total_cancelled']++;
+                    $summary['cancelled_value'] += $appointment->getPrice();
+                    break;
+                
+                case 'no-show':
+                    $summary['total_no_show']++;
+                    //no-show pode ou não ser cobrado 
+                    break;
+            }
+        }
+
+        // arredondamos valores monetário
+        $summary['gross_revenue']   = round($summary['gross_revenue'], 2);
+        $summary['received']        = round($summary['received'], 2);
+        $summary['pending']         = round($summary['pending'], 2);
+        $summary['cancelled_value'] = round($summary['cancelled_value'], 2);
+ 
+        return $summary;
+    }
+
+    /**
+     * Resumo financeiro de um mês específico
+     * 
+     * @param int $year  Ex: 2026
+     * @param int $month Ex: 6
+     * @throws ValidationException Se mês ou ano forem inválidos
+     * @return array
+     */
+    public function getSummaryByMonth(int $year, int $month): array {
+        if ($month < 1 || $month > 12) {
+            throw new ValidationException(['month' => 'Mês deve ser entre 1 e 12']);
+        }
+ 
+        if ($year < 2000 || $year > 2100) {
+            throw new ValidationException(['year' => 'Ano inválido']);
+        }
+ 
+        $startDate = new DateTime("{$year}-{$month}-01 00:00:00");
+        $endDate   = (clone $startDate)->modify('last day of this month 23:59:59');
+ 
+        return $this->getSummaryByPeriod($startDate, $endDate);
+    }
+ 
+    /**
+     * Resumo financeiro por profissional em um período
+     * 
+     * @param int $professionalId
+     * @param DateTime $startDate
+     * @param DateTime $endDate
+     * @throws ValidationException
+     * @return array [
+     *   'professional_id' => int,
+     *   'period'          => string,
+     *   'total_sessions'  => int,
+     *   'completed'       => int,
+     *   'received'        => float,
+     *   'pending'         => float,
+     * ]
+     */
+    public function getSummaryByProfessional(
+        int $professionalId,
+        DateTime $startDate,
+        DateTime $endDate
+    ): array {
+        $this->validateDateRange($startDate, $endDate);
+ 
+        $appointments = $this->appointmentRepository->findByProfessional($professionalId, false);
+ 
+        // Filtra pelo período manualmente (evita nova query)
+        $filtered = array_filter(
+            $appointments,
+            fn($apt) => $apt->getStartTime() >= $startDate && $apt->getStartTime() <= $endDate
+        );
+ 
+        $summary = [
+            'professional_id' => $professionalId,
+            'period'          => $startDate->format('d/m/Y') . ' a ' . $endDate->format('d/m/Y'),
+            'total_sessions'  => count($filtered),
+            'completed'       => 0,
+            'received'        => 0.0,
+            'pending'         => 0.0,
+        ];
+ 
+        foreach ($filtered as $appointment) {
+            if ($appointment->getStatus() === 'completed') {
+                $summary['completed']++;
+ 
+                if ($appointment->isPaid()) {
+                    $summary['received'] += $appointment->getPrice();
+                } else {
+                    $summary['pending'] += $appointment->getPrice();
+                }
+            }
+        }
+ 
+        $summary['received'] = round($summary['received'], 2);
+        $summary['pending']  = round($summary['pending'], 2);
+ 
+        return $summary;
+    }
+ 
+    /**
+     * Agendamentos pagos em um período (extrato de caixa)
+     * 
+     * @param DateTime $startDate
+     * @param DateTime $endDate
+     * @param string|null $method Filtra por método de pagamento (null = todos)
+     * @throws ValidationException
+     * @return Appointment[]
+     */
+    public function getPaidAppointments(
+        DateTime $startDate,
+        DateTime $endDate,
+        ?string $method = null,
+        bool $loadRelations = true
+    ): array {
+        $this->validateDateRange($startDate, $endDate);
+ 
+        if ($method !== null) {
+            $this->validatePaymentMethod($method);
+        }
+ 
+        $appointments = $this->appointmentRepository->findByDateRange($startDate, $endDate, $loadRelations);
+ 
+        return array_values(array_filter(
+            $appointments,
+            function ($apt) use ($method) {
+                if (!$apt->isPaid()) return false;
+                if ($method !== null && $apt->getPaymentMethod() !== $method) return false;
+                return true;
+            }
+        ));
+    }
+ 
+ 
+    // =========================================================
+    // VALIDAÇÕES PRIVADAS
+    // =========================================================
+ 
+    /**
+     * Valida método de pagamento
+     * 
+     * @param string $method
+     * @throws InvalidPaymentMethodException
+     * @return void
+     */
+    private function validatePaymentMethod(string $method): void {
+        if (!in_array($method, self::ALLOWED_PAYMENT_METHODS, true)) {
+            throw new InvalidPaymentMethodException($method, self::ALLOWED_PAYMENT_METHODS);
+        }
+    }
+ 
+    /**
+     * Resolve a data de pagamento a partir de string, DateTime ou null
+     * 
+     * @param string|DateTime|null $date
+     * @throws ValidationException Se formato inválido
+     * @return DateTime
+     */
+    private function resolvePaymentDate(string|DateTime|null $date): DateTime {
+        if ($date === null) {
+            return new DateTime();
+        }
+ 
+        if ($date instanceof DateTime) {
+            return $date;
+        }
+ 
+        $parsed = DateTime::createFromFormat('Y-m-d', $date)
+               ?: DateTime::createFromFormat('d/m/Y', $date);
+ 
+        if (!$parsed) {
+            throw new ValidationException([
+                'date' => "Formato de data inválido. Use 'YYYY-MM-DD' ou 'DD/MM/YYYY'"
+            ]);
+        }
+ 
+        return $parsed;
+    }
+ 
+    /**
+     * Valida intervalo de datas para relatórios
+     * 
+     * @param DateTime $startDate
+     * @param DateTime $endDate
+     * @throws ValidationException
+     * @return void
+     */
+    private function validateDateRange(DateTime $startDate, DateTime $endDate): void {
+        if ($startDate > $endDate) {
+            throw new ValidationException([
+                'start_date' => 'Data de início deve ser anterior à data de fim'
+            ]);
+        }
+ 
+        $diffDays = (int) $startDate->diff($endDate)->days;
+ 
+        if ($diffDays > 365) {
+            throw new ValidationException([
+                'date_range' => 'Intervalo de datas não pode ultrapassar 1 ano'
+            ]);
+        }
     }
 }

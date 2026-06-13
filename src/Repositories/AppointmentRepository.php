@@ -523,6 +523,39 @@ class AppointmentRepository {
     }
 
     /**
+     * Desfaz o pagamento de um agendamento (estorno/correção)
+     * Limpa paid, payment_method e payment_date do registro
+     */
+    public function undoPayment(int $appointmentId): bool {
+        try {
+            $stmt = $this->pdo->prepare(
+                "UPDATE appointments
+                 SET paid           = 0,
+                     payment_method = NULL,
+                     payment_date   = NULL
+                 WHERE id = :id
+                   AND paid = 1
+                   AND deleted_at IS NULL"
+            );
+ 
+            $stmt->execute(['id' => $appointmentId]);
+ 
+            if ($stmt->rowCount() === 0) {
+                throw new DomainException(
+                    "Não foi possível desfazer o pagamento: agendamento não encontrado, " .
+                    "não está pago ou já foi deletado"
+                );
+            }
+ 
+            return true;
+ 
+        } catch (PDOException $e) {
+            error_log("Erro ao desfazer pagamento #{$appointmentId}: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
      * Cancela recorrência a partir de uma data usando stored procedure
      */
     public function cancelRecurrence(int $recurrenceGroupId, DateTime $fromDate, ?string $reason = null): int {

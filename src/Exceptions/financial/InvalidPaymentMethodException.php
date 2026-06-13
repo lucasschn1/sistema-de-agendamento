@@ -1,4 +1,8 @@
 <?php
+namespace App\Exceptions\financial;
+
+use App\Exceptions\BusinessException;
+
 class InvalidPaymentMethodException extends BusinessException
 {
     public function __construct(string $method, array $allowedMethods)
