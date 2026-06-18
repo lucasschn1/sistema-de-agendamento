@@ -83,5 +83,51 @@ Class Router {
             'middlewares' => array_merge($this->middlewares, $middlewares),
         ];
     }
+
+    // =========================================================
+    // DISPATCH — processa a requisição atual
+    // =========================================================
+
+    /**
+     * Encontra a rota correspondente e executa Controller
+     * 
+     * @param Request $request Requisição HTTP atual
+     * @param array $container Mapa de dependências do dependencies.php
+     */
+    public function dispatch(Request $request, array $container): void {
+        $method = $request->method();
+        $path = $request->path();
+
+        foreach($this->routes as $route) {
+            // verifica método HTTP
+            if ($route['method'] !== $method) {
+                continue;
+            }
+
+            // tenta fazer match do path com pattern da rota
+            if (!preg_match($route['pattern'], $path, $matches)) {
+                continue;
+            }
+
+            // extrai o parametro da rota (ex: {id} -> ['id' => '24])
+            $params = $this->extractParams($route['path'], $matches);
+            $request->setRouteParams($params);
+
+            // executa middlewares da rota em ordem
+            $this->runMiddlewares($route['middlewares'], $request, $container);
+
+            // resolve e executa o Controller
+            $this->runHandles($route['handler'], $request, $container);
+            return;
+        }
+
+        // nenuma rota encontrada
+        // verifica se o path existe 
+        if ($this->pathExistWithDifferentMethod($path, $method)) {
+            Response::error('Método não permitido', 405, 'MethodNotAllowed')->send();
+        }
+
+        Response::notFound("Rota não encontrada: {$method} {$path}")->send();
+    }
     
 }
