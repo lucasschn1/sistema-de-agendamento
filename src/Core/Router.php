@@ -117,17 +117,110 @@ Class Router {
             $this->runMiddlewares($route['middlewares'], $request, $container);
 
             // resolve e executa o Controller
-            $this->runHandles($route['handler'], $request, $container);
+            $this->runHandler($route['handler'], $request, $container);
             return;
         }
 
         // nenuma rota encontrada
         // verifica se o path existe 
-        if ($this->pathExistWithDifferentMethod($path, $method)) {
+        if ($this->pathExistsWithDifferentMethod($path, $method)) {
             Response::error('Método não permitido', 405, 'MethodNotAllowed')->send();
         }
 
         Response::notFound("Rota não encontrada: {$method} {$path}")->send();
     }
+
+    // =========================================================
+    // EXECUÇÃO DO HANDLER E MIDDLEWARES
+    // =========================================================
+
+    /**
+     * Executa os middlewares em ordem
+     * Se algum middleware enviar uma resposta (ex: 401), o fluxo para
+     */
+    private function runMiddlewares(array $middlewares, Request $request, array $container): void {
+        foreach ($middlewares as $middlewareClass) {
+            // tenta resolver do container primeiro, senão instacia diretamente
+            $middleware = $container[$middlewareClass] ?? new $middlewareClass();
+            $middleware->handle($request, $container);
+        }
+    }
+
+    /**
+     * Resolve o Controller do container e execute o método
+     */
+    private function runHandler(array $handler, Request $request, array $container): void {
+        [$controllerClass, $method] = $handler;
+
+        // resolve Controller do container de dependências
+        $controller = $container[$controllerClass] ?? null;
+
+        if (!$controller) {
+            // tenta instanciar diretamente se não estiver no container
+            if (class_exists($controllerClass)) {
+                $controller = new $controllerClass();
+            } else {
+                Response::serverError("Controller '{$controllerClass}' não encontrado")->send();
+            }
+        }
+
+        if (!method_exists($controller, $method)) {
+            Response::serverError("Método '{$method}' não existe em '{$controllerClass}'")->send();
+        }
+
+        // executa o método do Controller
+        $response = $controller->$method($request);
+
+        // Controllers podem retornar um Response ou enviar diretamente
+        if ($response instanceof Response) {
+            $response->send();
+        }
+    }
+
+    // =========================================================
+    // HELPERS DE PATTERN MATCHING
+    // =========================================================
+    
+    /**
+     * Converte o path com placeholders em um regex
+     * Ex: /appointments/{id} → #^/appointments/(?P<id>[^/]+)$#
+     */
+    private function buildPattern(string $path): string {
+        // escapa a barra e outros caracteres especiais de regex
+        $escaped = preg_quote($path, '#');
+
+        // Substitui os placeholders escapados por grupos nomeados
+        // preg_quote transforma {id} em \{id\}
+        $pattern = preg_replace('#\\\{([a-zA-Z_][a-zA-Z0-9_]*)\\\}#', '(?P<$1>[^/]+)', $escaped);
+
+        return "#^{$pattern}$#";
+    }
+
+    /**
+     * Extrai parâmetros nomeados do resultado do preg_match
+     * Filtra apenas as chaves string (grupos nomeados), ignorando os índices numéricos
+     */
+    private function extractParams(string $routePath, array $matches): array {
+        return array_filter(
+            $matches,
+            fn($key) => is_string($key),
+            ARRAY_FILTER_USE_KEY
+        );
+    }
+
+     /**
+     * Verifica se o path existe com outro método HTTP (para 405 vs 404)
+     */
+    private function pathExistsWithDifferentMethod(string $path, string $currentMethod): bool {
+        foreach ($this->routes as $route) {
+            if ($route['method'] !== $currentMethod
+                && preg_match($route['pattern'], $path)
+            ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     
 }
