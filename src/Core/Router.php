@@ -111,7 +111,7 @@ Class Router {
 
             // extrai o parametro da rota (ex: {id} -> ['id' => '24])
             $params = $this->extractParams($route['path'], $matches);
-            $request->setRouteParams($params);
+            $request->setRouterParams($params);
 
             // executa middlewares da rota em ordem
             $this->runMiddlewares($route['middlewares'], $request, $container);

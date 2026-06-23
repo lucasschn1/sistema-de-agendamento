@@ -119,7 +119,7 @@ Class Request {
         // normaliza para uppercase com underscore para compatibilidade
         $normalized = strtoupper(str_replace('-', '_', $key));
 
-        return $this->header($normalized) ?? $default;
+        return $this->header[$normalized] ?? $default;
     }
 
     /**
@@ -153,7 +153,7 @@ Class Request {
      * Verifica se é uma requisição AJAX / XHR
      */
     public function isAjax(): bool {
-        return $this->header('X_Request_With') === 'XMLHttpRequest';
+        return $this->header('X_Requested_With') === 'XMLHttpRequest';
     }
 
     /**
