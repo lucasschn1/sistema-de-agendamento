@@ -119,7 +119,7 @@ Class Request {
         // normaliza para uppercase com underscore para compatibilidade
         $normalized = strtoupper(str_replace('-', '_', $key));
 
-        return $this->header[$normalized] ?? $default;
+        return $this->headers[$normalized] ?? $default;
     }
 
     /**
