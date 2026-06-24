@@ -5,12 +5,12 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Services\UserService;
 use App\Exceptions\ValidationException;
-use App\Exceptions\UserNotFoundException;
+use App\Exceptions\user\UserNotFoundException;
 use App\Exceptions\DuplicateUserException;
 use App\Exceptions\InactiveUserException;
 use App\Exceptions\UserHasFutureAppointmentsException;
 use App\Exceptions\UnauthorizedException;
- 
+
 /**
  * UserController - Gerencia usuários da clínica
  * 
@@ -50,6 +50,188 @@ Class UserController {
         $user = $request->user();
         return Response::json($user->toPublicArray());
     }
+
+    /**
+     * PUT /api/me
+     * Atualiza dados do própio perfil (nome, telefone, bio, etc)
+     * 
+     * Body esperado:
+     * {
+     *  "name": "string",
+     *  "phone": "string",
+     *  "bio": "srting",
+     *  "specialty": "string"
+     * }
+     */
+    public function updateMe(Request $request): Response {
+        try {
+            $userId = $request->user()->getId();
+
+            // campos que o próprio usuário pode alterar
+            // não permite alterar role, email ou CPF por aqui
+            $allowedFields = ['name', 'phone', 'bio', 'specialty'];
+            $data = array_intersect($request->body(), array_flip($allowedFields));
+
+            $this->userService->updateUser($userId, $data);
+
+            $updateUser = $this->userService->getUserById($userId);
+            return Response::json($updateUser->toPublicArray(), 200, 'Perfil atualizado');
+
+        } catch (ValidationException $e) {
+            return Response::validationError($e->getErrors());
+
+        } catch (UserNotFoundException $e) {
+            return Response::notFound($e->getMessage());
+
+        } catch (\Throwable $e) {
+            return Response::serverError();
+        }
+    }
+
+    /**
+     * PATCH /api/me/password
+     * Altera a própria senha
+     * 
+     * Body esperado: 
+     * {
+     *  "current_password": "senha_atual",
+     *  "new_password": "nova_senha"
+     * }
+     */
+    public function updatePassword(Request $request): Response {
+        try {
+            $userId = $request->user()->getId();
+            $currentPassword = $request->input('current_password', '');
+            $newPassword = $request->input('new_password', '');
+
+            if (empty($currentPassword) || empty($newPassword)) {
+                return Response::validationError([
+                    'password' => 'Senha atual e nova são obrigatórias'
+                ]);
+            }
+
+            $this->userService->updatePassword($userId, $currentPassword, $newPassword);
+
+            return Response::json(null, 200, 'Senha alterada com sucesso');
+
+        } catch (\InvalidArgumentException $e) {
+            return Response::error($e->getMessage(), 400);
+
+        } catch (ValidationException $e) {
+            return Response::validationError($e->getErrors());
+
+        } catch (\Throwable $e) {
+            return Response::serverError();
+        }
+    }
+
+    // =========================================================
+    // ADMIN — LISTAGEM E BUSCA
+    // =========================================================
+    
+    /**
+     * GET /api/users
+     * Lista todos os usuários (com filtro opcional por role)
+     * 
+     * Query params:
+     *  ?role=patient|professional|admin
+     *  ?active=true|false
+     */
+    public function index(Request $request): Response {
+        try {
+            $role = $request->query('role');
+            $activeOnly = $request->query('active', 'true') === 'true';
+
+            $users = match($role) {
+                'patient' => $this->userService->getAllPatients($activeOnly),
+                'professional' => $this->userService->getAllProfessionals($activeOnly),
+
+                default => array_merge(
+                    $this->userService->getAllPatients($activeOnly),
+                    $this->userService->getAllProfessionals($activeOnly)
+                )
+            };
+
+            $data = array_map(fn($u) => $u->toPublicArray(), $users);
+            return Response::json($data);
+
+        } catch (\Throwable $e) {
+            return Response::serverError();
+        }
+    }
+
+    /**
+     * GET /api/users/{id}
+     * Retorna dados de um usuário específico
+     */
+    public function show(Request $request) {
+        try {
+            $id = (int) $request->param('id');
+            $user = $this->userService->getUserById($id);
+
+            return Response::json($user->toPublicArray());
+
+        } catch (UserNotFoundException $e) {
+            return Response::notFound($e->getMessage());
+
+        } catch (\Throwable $e) {
+            return Response::serverError();
+        }
+    }
+
+    /**
+     * GET /api/users/search
+     * Busca usuários por nome (busca parcial)
+     * 
+     * Query params:
+     *   ?name=joão
+     *   ?type=Psicólogo (filtra profissionais por tipo)
+     */
+    public function search(Request $request): Response {
+        try {
+            $name = $request->query('name', '');
+            $type = $request->query('type');
+ 
+            if (!empty($type)) {
+                $users = $this->userService->getProfessionalByType($type);
+            } else {
+                $users = $this->userService->searchByName($name);
+            }
+ 
+            $data = array_map(fn($u) => $u->toPublicArray(), $users);
+            return Response::json($data);
+ 
+        } catch (ValidationException $e) {
+            return Response::validationError($e->getErrors());
+ 
+        } catch (\Throwable $e) {
+            return Response::serverError();
+        }
+    }
+
+    /**
+     * GET /api/users/stats
+     * Retorna contadores de usuários por tipo
+     * 
+     * Resposta: 
+     * {
+     *  "patients": 42,
+     *  "professional": 5,
+     *  "admins": 1
+     * }
+     */
+    public function stats(Request $request): Response {
+        try {
+            return Response::json($this->userService->getUserStats());
+
+        } catch (\Throwable $e) {
+            return Response::serverError();
+        }
+    }
+
+    // =========================================================
+    // ADMIN — CRIAÇÃO
+    // =========================================================
 
     
 }
