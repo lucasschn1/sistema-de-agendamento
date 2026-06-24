@@ -1,4 +1,8 @@
 <?php
+namespace App\Exceptions;
+
+use App\Exceptions\BusinessException;
+
 class UnauthorizedException extends BusinessException
 {
     protected int $httpStatusCode = 403;

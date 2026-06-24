@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Core;
 
 /**
@@ -23,10 +24,11 @@ namespace App\Core;
  *       $router->get('/users', [UserController::class, 'index']);
  *   });
  */
-Class Router {
-    private array $routes = [];
-    private array $middlewares = []; // middlewares globais (aplicado em todas as rotas)
-    private string $prefix = ''; // prefixo atual de grupo
+class Router {
+    private array  $routes      = [];
+    private array  $middlewares = []; // middleware globais (aplicados em todas as rotas)
+    private string $prefix      = ''; // prefixo atual de grupo
+
 
     // =========================================================
     // REGISTRO DE ROTAS
@@ -36,18 +38,18 @@ Class Router {
         $this->addRoute('GET', $path, $handler, $middlewares);
     }
 
-     public function post(string $path, array $handler, array $middlewares = []): void {
+    public function post(string $path, array $handler, array $middlewares = []): void {
         $this->addRoute('POST', $path, $handler, $middlewares);
     }
- 
+
     public function put(string $path, array $handler, array $middlewares = []): void {
         $this->addRoute('PUT', $path, $handler, $middlewares);
     }
- 
+
     public function patch(string $path, array $handler, array $middlewares = []): void {
         $this->addRoute('PATCH', $path, $handler, $middlewares);
     }
- 
+
     public function delete(string $path, array $handler, array $middlewares = []): void {
         $this->addRoute('DELETE', $path, $handler, $middlewares);
     }
@@ -62,11 +64,15 @@ Class Router {
     public function group(string $prefix, array $middlewares, callable $callback): void {
         $previousPrefix      = $this->prefix;
         $previousMiddlewares = $this->middlewares;
- 
+
         $this->prefix      = $previousPrefix . $prefix;
         $this->middlewares = array_merge($previousMiddlewares, $middlewares);
- 
+
         $callback($this);
+
+        // Restaura o estado anterior (suporte a grupos aninhados)
+        $this->prefix      = $previousPrefix;
+        $this->middlewares = $previousMiddlewares;
     }
 
     /**
@@ -74,7 +80,7 @@ Class Router {
      */
     private function addRoute(string $method, string $path, array $handler, array $middlewares): void {
         $fullPath = $this->prefix . $path;
- 
+
         $this->routes[] = [
             'method'      => $method,
             'path'        => $fullPath,
@@ -84,45 +90,46 @@ Class Router {
         ];
     }
 
+
     // =========================================================
     // DISPATCH — processa a requisição atual
     // =========================================================
 
     /**
-     * Encontra a rota correspondente e executa Controller
+     * Encontra a rota correspondente e executa o Controller
      * 
-     * @param Request $request Requisição HTTP atual
-     * @param array $container Mapa de dependências do dependencies.php
+     * @param Request  $request   Requisição HTTP atual
+     * @param array    $container Mapa de dependências do dependencies.php
      */
     public function dispatch(Request $request, array $container): void {
         $method = $request->method();
-        $path = $request->path();
+        $path   = $request->path();
 
-        foreach($this->routes as $route) {
-            // verifica método HTTP
+        foreach ($this->routes as $route) {
+            // Verifica método HTTP
             if ($route['method'] !== $method) {
                 continue;
             }
 
-            // tenta fazer match do path com pattern da rota
+            // Tenta fazer match do path com o pattern da rota
             if (!preg_match($route['pattern'], $path, $matches)) {
                 continue;
             }
 
-            // extrai o parametro da rota (ex: {id} -> ['id' => '24])
+            // Extrai parâmetros de rota (ex: {id} → ['id' => '42'])
             $params = $this->extractParams($route['path'], $matches);
-            $request->setRouterParams($params);
+            $request->setRouteParams($params);
 
-            // executa middlewares da rota em ordem
+            // Executa middlewares da rota em ordem
             $this->runMiddlewares($route['middlewares'], $request, $container);
 
-            // resolve e executa o Controller
+            // Resolve e executa o Controller
             $this->runHandler($route['handler'], $request, $container);
             return;
         }
 
-        // nenuma rota encontrada
-        // verifica se o path existe 
+        // Nenhuma rota encontrada
+        // Verifica se o path existe com método diferente (405 vs 404)
         if ($this->pathExistsWithDifferentMethod($path, $method)) {
             Response::error('Método não permitido', 405, 'MethodNotAllowed')->send();
         }
@@ -130,33 +137,58 @@ Class Router {
         Response::notFound("Rota não encontrada: {$method} {$path}")->send();
     }
 
+
     // =========================================================
     // EXECUÇÃO DO HANDLER E MIDDLEWARES
     // =========================================================
 
     /**
      * Executa os middlewares em ordem
-     * Se algum middleware enviar uma resposta (ex: 401), o fluxo para
+     * Suporta sintaxe com parâmetro: 'RoleMiddleware:admin,professional'
      */
     private function runMiddlewares(array $middlewares, Request $request, array $container): void {
-        foreach ($middlewares as $middlewareClass) {
-            // tenta resolver do container primeiro, senão instacia diretamente
+        foreach ($middlewares as $middlewareDefinition) {
+            // Separa a classe do parâmetro de role: 'RoleMiddleware:admin' → ['RoleMiddleware', 'admin']
+            [$middlewareClass, $params] = $this->parseMiddlewareDefinition($middlewareDefinition);
+
+            // Resolve do container ou instancia diretamente
             $middleware = $container[$middlewareClass] ?? new $middlewareClass();
+
+            // Injeta roles se for o RoleMiddleware
+            if ($params && method_exists($middleware, 'setRoles')) {
+                $roles = array_map('trim', explode(',', $params));
+                $middleware->setRoles($roles);
+            }
+
             $middleware->handle($request, $container);
         }
     }
 
     /**
-     * Resolve o Controller do container e execute o método
+     * Separa a classe do parâmetro em definições de middleware
+     * Ex: 'App\Middleware\RoleMiddleware:admin' → ['App\Middleware\RoleMiddleware', 'admin']
+     * Ex: 'App\Middleware\AuthMiddleware'        → ['App\Middleware\AuthMiddleware', null]
+     */
+    private function parseMiddlewareDefinition(string $definition): array {
+        if (!str_contains($definition, ':')) {
+            return [$definition, null];
+        }
+
+        [$class, $params] = explode(':', $definition, 2);
+        return [$class, $params];
+    }
+
+    /**
+     * Resolve o Controller do container e executa o método
      */
     private function runHandler(array $handler, Request $request, array $container): void {
         [$controllerClass, $method] = $handler;
 
-        // resolve Controller do container de dependências
+        // Resolve Controller do container de dependências
         $controller = $container[$controllerClass] ?? null;
 
         if (!$controller) {
-            // tenta instanciar diretamente se não estiver no container
+            // Tenta instanciar diretamente se não estiver no container
             if (class_exists($controllerClass)) {
                 $controller = new $controllerClass();
             } else {
@@ -168,7 +200,7 @@ Class Router {
             Response::serverError("Método '{$method}' não existe em '{$controllerClass}'")->send();
         }
 
-        // executa o método do Controller
+        // Executa o método do Controller
         $response = $controller->$method($request);
 
         // Controllers podem retornar um Response ou enviar diretamente
@@ -177,16 +209,18 @@ Class Router {
         }
     }
 
+
     // =========================================================
     // HELPERS DE PATTERN MATCHING
     // =========================================================
-    
+
     /**
-     * Converte o path com placeholders em um regex
+     * Converte o path com placeholders em uma regex
      * Ex: /appointments/{id} → #^/appointments/(?P<id>[^/]+)$#
      */
-    private function buildPattern(string $path): string {
-        // escapa a barra e outros caracteres especiais de regex
+    private function buildPattern(string $path): string
+    {
+        // Escapa a barra e outros caracteres especiais de regex
         $escaped = preg_quote($path, '#');
 
         // Substitui os placeholders escapados por grupos nomeados
@@ -200,7 +234,8 @@ Class Router {
      * Extrai parâmetros nomeados do resultado do preg_match
      * Filtra apenas as chaves string (grupos nomeados), ignorando os índices numéricos
      */
-    private function extractParams(string $routePath, array $matches): array {
+    private function extractParams(string $routePath, array $matches): array
+    {
         return array_filter(
             $matches,
             fn($key) => is_string($key),
@@ -208,10 +243,11 @@ Class Router {
         );
     }
 
-     /**
+    /**
      * Verifica se o path existe com outro método HTTP (para 405 vs 404)
      */
-    private function pathExistsWithDifferentMethod(string $path, string $currentMethod): bool {
+    private function pathExistsWithDifferentMethod(string $path, string $currentMethod): bool
+    {
         foreach ($this->routes as $route) {
             if ($route['method'] !== $currentMethod
                 && preg_match($route['pattern'], $path)
@@ -221,6 +257,4 @@ Class Router {
         }
         return false;
     }
-
-    
 }

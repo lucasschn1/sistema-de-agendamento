@@ -1,5 +1,8 @@
 <?php
+
 namespace App\Core;
+
+use App\Models\User;
 
 /**
  * Request - Encapsula a requisição HTTP recebida
@@ -17,20 +20,22 @@ namespace App\Core;
  *   $request->path()                   // /api/appointments
  *   $request->bearerToken()            // extrai o JWT do header Authorization
  */
-Class Request {
+class Request {
     private string $method;
     private string $path;
-    private array $body;
-    private array $query;
-    private array $headers;
-    private array $routeParams = []; // preenchido pelo Router após o match
+    private array  $body;
+    private array  $query;
+    private array  $headers;
+    private array  $routeParams = []; // preenchido pelo Router após o match
+    private ?User  $user = null;      // preenchido pelo AuthMiddleware após validação do JWT
+
 
     private function __construct(
         string $method,
         string $path,
-        array $body,
-        array $query,
-        array $headers
+        array  $body,
+        array  $query,
+        array  $headers
     ) {
         $this->method  = $method;
         $this->path    = $path;
@@ -40,22 +45,23 @@ Class Request {
     }
 
     /**
-     * Constroí uma Request a partir da requisição HTTP atual
+     * Constrói um Request a partir da requisição HTTP atual
      */
     public static function capture(): static {
-        $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
-        $path = self::parsePath();
-        $body = self::parseBody($method);
-        $query = $_GET ?? [];
+        $method  = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+        $path    = self::parsePath();
+        $body    = self::parseBody($method);
+        $query   = $_GET ?? [];
         $headers = self::parseHeaders();
 
         return new static($method, $path, $body, $query, $headers);
     }
 
+
     // =========================================================
     // GETTERS PRINCIPAIS
     // =========================================================
-    
+
     /**
      * Retorna o método HTTP (GET, POST, PUT, DELETE, PATCH)
      */
@@ -64,8 +70,8 @@ Class Request {
     }
 
     /**
-     * Retorna o path da requisição sem query string 
-     * EX: /api/appoitments
+     * Retorna o path da requisição sem query string
+     * Ex: /api/appointments
      */
     public function path(): string {
         return $this->path;
@@ -73,7 +79,6 @@ Class Request {
 
     /**
      * Retorna o body da requisição decodificado como array
-     * 
      * Funciona para JSON (Content-Type: application/json) e form-data
      */
     public function body(): array {
@@ -81,8 +86,9 @@ Class Request {
     }
 
     /**
-     * Retorna um campo especifico de body
-     * @param mixed $default Valor padrão se campo não existir
+     * Retorna um campo específico do body
+     * 
+     * @param mixed $default Valor padrão se o campo não existir
      */
     public function input(string $key, mixed $default = null): mixed {
         return $this->body[$key] ?? $default;
@@ -90,7 +96,7 @@ Class Request {
 
     /**
      * Retorna um parâmetro de rota (definido pelo Router)
-     * Ex: /appointment/{id} -> $request->param('id')
+     * Ex: /appointments/{id} → $request->param('id')
      */
     public function param(string $key, mixed $default = null): mixed {
         return $this->routeParams[$key] ?? $default;
@@ -98,14 +104,14 @@ Class Request {
 
     /**
      * Retorna um parâmetro da query string ($_GET)
-     * Ex: /appointments?status=confirmed -> $request->query('status')
+     * Ex: /appointments?status=confirmed → $request->query('status')
      */
-    public function query(string $key, mixed $default= null): mixed {
+    public function query(string $key, mixed $default = null): mixed {
         return $this->query[$key] ?? $default;
     }
 
     /**
-     * Retorna todos os parâmetros da rota
+     * Retorna todos os parâmetros de rota
      */
     public function params(): array {
         return $this->routeParams;
@@ -116,9 +122,8 @@ Class Request {
      * Ex: $request->header('Content-Type')
      */
     public function header(string $key, mixed $default = null): mixed {
-        // normaliza para uppercase com underscore para compatibilidade
+        // Normaliza para uppercase com underscores para compatibilidade
         $normalized = strtoupper(str_replace('-', '_', $key));
-
         return $this->headers[$normalized] ?? $default;
     }
 
@@ -126,7 +131,7 @@ Class Request {
      * Extrai o token JWT do header Authorization
      * Formato esperado: "Bearer eyJ..."
      * 
-     * @return string|null Token sem prefixo "Bearer "
+     * @return string|null Token sem o prefixo "Bearer "
      */
     public function bearerToken(): ?string {
         $authorization = $this->header('Authorization');
@@ -139,10 +144,10 @@ Class Request {
     }
 
     /**
-     * Verifica se a requisição espera a resposta JSON
+     * Verifica se a requisição espera resposta JSON
      */
     public function expectsJson(): bool {
-        $accept = $this->header('Accept') ?? '';
+        $accept      = $this->header('Accept') ?? '';
         $contentType = $this->header('Content_Type') ?? '';
 
         return str_contains($accept, 'application/json')
@@ -165,56 +170,81 @@ Class Request {
     public function isPatch(): bool  { return $this->method === 'PATCH'; }
     public function isDelete(): bool { return $this->method === 'DELETE'; }
 
+
     // =========================================================
     // SETTER — usado pelo Router após o match da rota
     // =========================================================
-    
+
     /**
      * Injeta os parâmetros de rota extraídos pelo Router
-     * Ex: /appoitmets/42 -> ['id' => 42] 
+     * Ex: /appointments/42 → ['id' => '42']
      */
-    public function setRouterParams(array $params): void {
+    public function setRouteParams(array $params): void {
         $this->routeParams = $params;
     }
+
+    /**
+     * Injeta o usuário autenticado — chamado pelo AuthMiddleware
+     */
+    public function setUser(User $user): void {
+        $this->user = $user;
+    }
+
+    /**
+     * Retorna o usuário autenticado ou null se rota pública
+     * Controllers usam: $request->user()
+     * Controllers com autenticação garantida: $request->user() nunca será null
+     */
+    public function user(): ?User {
+        return $this->user;
+    }
+
+    /**
+     * Verifica se há usuário autenticado
+     */
+    public function isAuthenticated(): bool {
+        return $this->user !== null;
+    }
+
 
     // =========================================================
     // HELPERS PRIVADOS
     // =========================================================
-    
+
     private static function parsePath(): string {
         $uri = $_SERVER['REQUEST_URI'] ?? '/';
- 
+
         // Remove a query string do path
         $path = parse_url($uri, PHP_URL_PATH);
- 
+
         // Remove barra final (exceto para o root /)
         return $path !== '/' ? rtrim($path, '/') : '/';
     }
- 
+
     private static function parseBody(string $method): array {
         // GET e DELETE normalmente não têm body
         if (in_array($method, ['GET', 'DELETE'])) {
             return [];
         }
- 
+
         $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
- 
+
         // JSON (Content-Type: application/json)
         if (str_contains($contentType, 'application/json')) {
             $raw = file_get_contents('php://input');
             $decoded = json_decode($raw, true);
- 
+
             // json_decode retorna null se o JSON for inválido
             return is_array($decoded) ? $decoded : [];
         }
- 
+
         // Form data (Content-Type: application/x-www-form-urlencoded)
         return $_POST ?? [];
     }
- 
+
     private static function parseHeaders(): array {
         $headers = [];
- 
+
         // getallheaders() disponível no Apache e PHP-FPM
         if (function_exists('getallheaders')) {
             foreach (getallheaders() as $name => $value) {
@@ -223,7 +253,7 @@ Class Request {
             }
             return $headers;
         }
- 
+
         // Fallback para servidores que não suportam getallheaders()
         foreach ($_SERVER as $key => $value) {
             if (str_starts_with($key, 'HTTP_')) {
@@ -231,12 +261,12 @@ Class Request {
                 $headers[$name] = $value;
             }
         }
- 
+
         // Content-Type e Content-Length não vêm com prefixo HTTP_
         if (isset($_SERVER['CONTENT_TYPE'])) {
             $headers['CONTENT_TYPE'] = $_SERVER['CONTENT_TYPE'];
         }
- 
+
         return $headers;
     }
 }
