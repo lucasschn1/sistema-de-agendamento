@@ -1,4 +1,7 @@
 <?php
+namespace App\Exceptions;
+use App\Exceptions\BusinessException;
+
 class UserHasFutureAppointmentsException extends BusinessException {
     public function __construct() {
             parent::__construct(

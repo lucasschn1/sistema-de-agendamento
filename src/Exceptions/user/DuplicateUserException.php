@@ -1,4 +1,8 @@
 <?php
+namespace App\Exceptions;
+
+use App\Exceptions\BusinessException;
+
 class DuplicateUserException extends BusinessException {
     protected int $httpStatus = 409;
 

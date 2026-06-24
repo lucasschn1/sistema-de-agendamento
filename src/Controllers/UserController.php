@@ -232,6 +232,152 @@ Class UserController {
     // =========================================================
     // ADMIN — CRIAÇÃO
     // =========================================================
-
     
+    /**
+     * POST /api/users/patient
+     * Cria um novo paciente
+     * 
+     * Body esperado:
+     * {
+     *  "name": "João Silva",
+     *  "email": "joao@email.com",
+     *  "password": "senha123", 
+     *  "cpf": "123.456.789-00", (opcional)
+     *  "phone": 11-99999-000" (opcional)
+     *  "birthdate": "1990-08-15" (opcional)
+     * }
+     */
+    public function storePatient(Request $request): Response {
+        try {
+            $id = $this->userService->createPatient($request->body());
+
+            $user = $this->userService->getUserById($id);
+            return Response::created($user->toPublicArray());
+
+        } catch (ValidationException $e) {
+            return Response::validationError($e->getErrors());
+
+        } catch (DuplicateUserException $e) {
+            return Response::conflict($e->getMessage());
+
+        } catch (\Throwable $e) {
+            return Response::serverError();
+        }
+    }
+
+    /**
+     * POST /api/users/professional
+     * Cria um novo profissional (psicólogo, psicopedagogo, etc.)
+     * 
+     * Body esperado:
+     * {
+     *   "name": "Dr. Carlos Silva",
+     *   "email": "carlos@clinica.com",
+     *   "password": "senha123",
+     *   "professional_type": "Psicólogo",
+     *   "council_id": "CRP 06/123456",  (opcional)
+     *   "specialty": "TCC",             (opcional)
+     *   "bio": "...",                   (opcional)
+     *   "cpf": "...",                   (opcional)
+     *   "phone": "..."                  (opcional)
+     * }
+     */
+    public function storeProfessional(Request $request): Response {
+        try {
+            $id = $this->userService->createProfessional($request->body());
+
+            $user = $this->userService->getUserById($id);
+            return Response::created($user->toPublicArray());
+
+        } catch (ValidationException $e) {
+            return Response::validationError($e->getErrors());
+
+        } catch (DuplicateUserException $e) {
+            return Response::conflict($e->getMessage());
+
+        } catch (\Throwable $e) {
+            return Response::serverError();
+        }
+    }
+
+    // =========================================================
+    // ADMIN — ATUALIZAÇÃO E DELEÇÃO
+    // =========================================================
+
+    /**
+     * PUT /api/users/{id}
+     * Atualiza dados de qualquer usuário (admin)
+     * Permite alterar mais campos que o /me
+     */
+    public function update(Request $request): Response {
+        try {
+            $id = (int) $request->param('id');
+
+            $this->userService->updateUser($id, $request->body());
+
+            $user = $this->userService->getUserById($id);
+            return Response::json($user->toPublicArray(), 200, 'Usuário atualizado com sucesso');
+
+        } catch (ValidationException $e) {
+            return Response::validationError($e->getErrors());
+
+        } catch (UserNotFoundException $e) {
+            return Response::notFound($e->getMessage());
+
+        } catch (DuplicateUserException $e) {
+            return Response::conflict($e->getMessage());
+
+        } catch (\Throwable $e) {
+            return Response::serverError();
+        }
+    }
+
+    /**
+     * PATCH /api/users/{id}/deactivate
+     * Desativa usuário (soft-delete)
+     * Bloqueio se houver agendamentos futuros ativos
+     */
+    public function deactivate(Request $request): Response {
+        try {
+            $id = (int) $request->param('id');
+
+            // Impede que o admin desative a si mesmo
+            if ($id === $request->user()->getId()) {
+                Return Response::error('Você não pode desativar a sua própria conta', 400);
+            }
+
+            $this->userService->deactivateUser($id);
+
+            return Response::json(null, 200, 'Usuário desativado com sucesso');
+
+        } catch (UserNotFoundException $e) {
+            return Response::notFound($e->getMessage());
+
+        } catch (UserHasFutureAppointmentsException $e) {
+            return Response::error($e->getMessage(), 400, 'UserHasFutureAppointmentsException');
+
+        } catch (\Throwable $e) {
+            return Response::serverError();
+        }
+    }
+
+    /**
+     * PATCH /api/users/{id}/restore
+     * Reativa usuário desativado
+     */
+    public function restore(Request $request): Response {
+        try {
+            $id = (int) $request->param('id');
+ 
+            $this->userService->reactivateUser($id);
+ 
+            return Response::json(null, 200, 'Usuário reativado com sucesso');
+ 
+        } catch (UserNotFoundException $e) {
+            return Response::notFound($e->getMessage());
+ 
+        } catch (\Throwable $e) {
+            return Response::serverError();
+        }
+    }
 }
