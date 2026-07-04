@@ -1,10 +1,19 @@
 <?php
+namespace App\Services;
 
 use App\Models\Service;
 use App\Repositories\ServiceRepository;
-use ProcedureNotFoundException;
-use InvalidDurationException;
-use ProcedureInUseException;
+use App\Exceptions\ProcedureNotFoundException;
+use App\Exceptions\InvalidDurationException;
+use App\Exceptions\ProcedureInUseException;
+use App\Exceptions\ValidationException;
+use App\Exceptions\InactiveProcedureException;
+use App\Exceptions\InvalidPriceException;
+
+use PDO;
+use PDOException;
+use DomainException;
+use InvalidArgumentException;
 
 /**
  * ProcedureService - camada de serviço para gerenciamento de Procedures/Serviços
@@ -262,7 +271,7 @@ class ProcedureService {
      * @param bool $activeOnly
      * @return Service[]
      */
-    public function getProcedureByCategory(string $category, bool $activeOnly = true): array {
+    public function getProceduresByCategory(string $category, bool $activeOnly = true): array {
         return $this->procedureRepository->findByCategory($category, $activeOnly);
     }
 
@@ -508,7 +517,7 @@ class ProcedureService {
      * @param int $limit
      * @return array Array associativo com dados agregados
      */
-    public function getMostUsedProcedure(int $limit = 10): array {
+    public function getMostUsedProcedures(int $limit = 10): array {
         if ($limit <= 0 || $limit > 100) {
             throw new ValidationException(['limit' => 'Limite deve estar entre 1 e 100']);
         }
@@ -527,7 +536,7 @@ class ProcedureService {
         $average = [];
 
         foreach ($categories as $category) {
-            $procedures = $this->getProcedureByCategory($category, true);
+            $procedures = $this->getProceduresByCategory($category, true);
 
             if (empty($procedures)) {
                 continue;

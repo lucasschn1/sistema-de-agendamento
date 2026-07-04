@@ -2,18 +2,18 @@
 namespace App\Services;
 
 use App\Repositories\UserRepository;
-use DuplicateUserException;
-use InvalidEmailException;
-use WeakPasswordException;
-use ValidationException;
+use App\Exceptions\DuplicateUserException;
+use App\Exceptions\InvalidEmailException;
+use App\Exceptions\WeakPasswordException;
+use App\Exceptions\ValidationException;
 use App\Models\User;
 use DomainException;
-use InactiveUserException;
+use App\Exceptions\InactiveUserException;
 use InvalidArgumentException;
-use InvalidUserRoleException;
-use UnauthorizedException;
-use UserNotFoundException;
-use UserHasFutureAppointmentsException;
+use App\Exceptions\InvalidUserRoleException;
+use App\Exceptions\UnauthorizedException;
+use App\Exceptions\UserNotFoundException;
+use App\Exceptions\UserHasFutureAppointmentsException;
 
 /**
  * Camada de Serviço para gerenciamento de usuários

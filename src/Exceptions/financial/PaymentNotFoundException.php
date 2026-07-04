@@ -1,4 +1,6 @@
 <?php
+namespace App\Exceptions;
+
 class PaymentNotFoundException extends BusinessException
 {
     protected int $httpStatusCode = 404;

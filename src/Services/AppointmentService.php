@@ -10,19 +10,18 @@ use App\Repositories\UserRepository;
 
 use App\Exceptions\ValidationException;
 
-use App\Exceptions\appointment\AppointmentConflictException;
-use App\Exceptions\appointment\AppointmentNotFoundException;
-use App\Exceptions\appointment\PastAppointmentException;
-use App\Exceptions\appointment\NoShowTimeException;
+use App\Exceptions\AppointmentConflictException;
+use App\Exceptions\AppointmentNotFoundException;
+use App\Exceptions\PastAppointmentException;
+use App\Exceptions\NoShowTimeException;
 use App\Exceptions\appointment\RecurrenceLimitExceededException;
 
-use App\Exceptions\user\UserNotFoundException;
-use App\Exceptions\user\InactiveUserException;
-use App\Exceptions\user\InvalidUserRoleException;
+use App\Exceptions\UserNotFoundException;
+use App\Exceptions\InactiveUserException;
+use App\Exceptions\InvalidUserRoleException;
 
-use App\Exceptions\procedure\ProcedureNotFoundException;
-
-use InactiveProcedureException;
+use App\Exceptions\ProcedureNotFoundException;
+use App\Exceptions\InactiveProcedureException;
 use InvalidArgumentException;
 use DomainException;
 
@@ -384,6 +383,25 @@ class AppointmentService {
     // =========================================================
     // REAGENDAMENTO
     // =========================================================
+ 
+    /**
+     * Atualiza campos simples de um agendamento (notes, price)
+     * 
+     * NÃO altera horário — para isso use rescheduleAppointment()
+     * NÃO altera status — para isso use confirm(), complete(), cancel()
+     * 
+     * @param Appointment $appointment Objeto com dados atualizados
+     * @throws AppointmentNotFoundException Se agendamento não existir
+     * @return bool
+     */
+    public function updateAppointment(Appointment $appointment): bool
+    {
+        if (!$appointment->getId() || !$this->appointmentRepository->findById($appointment->getId(), false)) {
+            throw new AppointmentNotFoundException($appointment->getId() ?? 0);
+        }
+ 
+        return $this->appointmentRepository->update($appointment);
+    }
 
     /**
      * Reagenda um agendamento (muda data/hora)

@@ -1,14 +1,18 @@
 <?php
+namespace App\Services;
+
 use App\Models\Appointment;
 
-use App\Exceptions\appointment\AppointmentNotFoundException;
+use App\Exceptions\AppointmentNotFoundException;
 use App\Exceptions\ValidationException;
-use App\Exceptions\financial\AlreadyPaidException;
-use App\Exceptions\financial\InvalidPaymentStatusException;
-use App\Exceptions\financial\InvalidPaymentMethodException;
+use App\Exceptions\AlreadyPaidException;
+use App\Exceptions\InvalidPaymentStatusException;
+use App\Exceptions\InvalidPaymentMethodException;
 
 use App\Repositories\AppointmentRepository;
 use DateTime;
+use DomainException;
+use PDOException;
 
 /**
  * FinancialService - Camada de Serviço para Gerenciamento Financeiro
@@ -165,7 +169,7 @@ class FinancialService {
      * @param bool $loadRelations
      * @return Appointment[]
      */
-    public function getPendingPayment(bool $loadRelations = true): array {
+    public function getPendingPayments(bool $loadRelations = true): array {
         return $this->appointmentRepository->getUnpaid($loadRelations);
     }
 
@@ -245,6 +249,19 @@ class FinancialService {
         $summary['cancelled_value'] = round($summary['cancelled_value'], 2);
  
         return $summary;
+    }
+
+    /**
+     * Resumo financeiro do mês atual
+     * 
+     * @return array
+     */
+    public function getCurrentMonthSummary(): array
+    {
+        $startDate = new DateTime('first day of this month 00:00:00');
+        $endDate   = new DateTime('last day of this month 23:59:59');
+ 
+        return $this->getSummaryByPeriod($startDate, $endDate);
     }
 
     /**

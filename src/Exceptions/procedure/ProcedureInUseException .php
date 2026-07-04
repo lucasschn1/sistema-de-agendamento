@@ -1,4 +1,8 @@
 <?php
+namespace App\Exceptions;
+
+use App\Exceptions\BusinessException;
+
 class ProcedureInUseException extends BusinessException
 {
     public function __construct()

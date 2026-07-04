@@ -1,5 +1,5 @@
 <?php
-namespace App\Exceptions\appointment;
+namespace App\Exceptions;
 
 use App\Exceptions\BusinessException;
 

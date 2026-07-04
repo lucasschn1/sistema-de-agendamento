@@ -5,7 +5,7 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Services\UserService;
 use App\Exceptions\ValidationException;
-use App\Exceptions\user\UserNotFoundException;
+use App\Exceptions\UserNotFoundException;
 use App\Exceptions\DuplicateUserException;
 use App\Exceptions\InactiveUserException;
 use App\Exceptions\UserHasFutureAppointmentsException;

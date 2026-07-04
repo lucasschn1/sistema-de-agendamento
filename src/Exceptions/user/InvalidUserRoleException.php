@@ -1,5 +1,5 @@
 <?php
-namespace App\Exceptions\user;
+namespace App\Exceptions;
 
 use App\Exceptions\BusinessException;
 
