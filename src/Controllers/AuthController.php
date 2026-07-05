@@ -7,7 +7,7 @@ use App\Core\Response;
 use App\Service\AuthService;
 use App\Exceptions\ValidationException;
 use App\Exceptions\UnauthorizedException;
-use App\Exceptions\InactiveUserException;
+use App\Exceptions\user\InactiveUserException;
 
 /**
  * AuthController - Gerencia autenticação da API

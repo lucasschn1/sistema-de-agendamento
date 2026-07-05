@@ -3,12 +3,12 @@ namespace App\Services;
 
 use App\Models\Service;
 use App\Repositories\ServiceRepository;
-use App\Exceptions\ProcedureNotFoundException;
-use App\Exceptions\InvalidDurationException;
-use App\Exceptions\ProcedureInUseException;
+use App\Exceptions\procedure\ProcedureNotFoundException;
+use App\Exceptions\procedure\InvalidDurationException;
+use App\Exceptions\procedure\ProcedureInUseException;
 use App\Exceptions\ValidationException;
-use App\Exceptions\InactiveProcedureException;
-use App\Exceptions\InvalidPriceException;
+use App\Exceptions\procedure\InactiveProcedureException;
+use App\Exceptions\procedure\InvalidPriceException;
 
 use PDO;
 use PDOException;

@@ -6,10 +6,10 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Services\ProcedureService;
 use App\Exceptions\ValidationException;
-use App\Exceptions\ProcedureNotFoundException;
-use App\Exceptions\ProcedureInUseException;
-use App\Exceptions\InvalidPriceException;
-use App\Exceptions\InvalidDurationException;
+use App\Exceptions\procedure\ProcedureNotFoundException;
+use App\Exceptions\procedure\ProcedureInUseException;
+use App\Exceptions\procedure\InvalidPriceException;
+use App\Exceptions\procedure\InvalidDurationException;
 
 /**
  * ProcedureController - Gerencia o catálogo de serviços da clínica

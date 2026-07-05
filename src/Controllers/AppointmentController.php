@@ -5,14 +5,14 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Services\AppointmentService;
 use App\Exceptions\ValidationException;
-use App\Exceptions\AppointmentNotFoundException;
-use App\Exceptions\AppointmentConflictException;
-use App\Exceptions\UserNotFoundException;
-use App\Exceptions\ProcedureNotFoundException;
-use App\Exceptions\InactiveUserException;
-use App\Exceptions\InactiveProcedureException;
-use App\Exceptions\PastAppointmentException;
-use App\Exceptions\NoShowTimeException;
+use App\Exceptions\appointment\AppointmentNotFoundException;
+use App\Exceptions\appointment\AppointmentConflictException;
+use App\Exceptions\user\UserNotFoundException;
+use App\Exceptions\procedure\ProcedureNotFoundException;
+use App\Exceptions\user\InactiveUserException;
+use App\Exceptions\procedure\InactiveProcedureException;
+use App\Exceptions\appointment\PastAppointmentException;
+use App\Exceptions\appointment\NoShowTimeException;
 
 
 /**

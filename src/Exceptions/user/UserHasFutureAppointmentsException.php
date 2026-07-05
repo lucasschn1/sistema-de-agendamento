@@ -1,5 +1,5 @@
 <?php
-namespace App\Exceptions;
+namespace App\Exceptions\user;
 use App\Exceptions\BusinessException;
 
 class UserHasFutureAppointmentsException extends BusinessException {

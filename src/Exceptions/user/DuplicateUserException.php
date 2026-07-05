@@ -1,6 +1,5 @@
 <?php
-namespace App\Exceptions;
-
+namespace App\Exceptions\user;
 use App\Exceptions\BusinessException;
 
 class DuplicateUserException extends BusinessException {

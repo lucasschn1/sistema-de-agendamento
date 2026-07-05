@@ -1,5 +1,6 @@
 <?php
-namespace App\Exceptions;
+namespace App\Exceptions\user;
+use App\Exceptions\BusinessException;
 
 class InvalidEmailException extends BusinessException {
     

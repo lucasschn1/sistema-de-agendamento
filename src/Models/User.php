@@ -159,7 +159,7 @@ Class User {
 
     //  converte string de data do banco para DateTime (pode ser nulo)
     private static function parseDate(?string $dvalue): ?DateTime {
-        if (empty($value)) return null;
+        if (empty($dvalue)) return null;
 
         $dt = DateTime::createFromFormat('Y-m-d H:i:S', $dvalue)
             ?: DateTime::createFromFormat('Y-m-d', $dvalue);

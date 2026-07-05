@@ -1,5 +1,7 @@
 <?php
-namespace App\Exceptions;
+namespace App\Exceptions\financial;
+
+use App\Exceptions\BusinessException;
 
 class PaymentNotFoundException extends BusinessException
 {

@@ -6,10 +6,10 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Services\FinancialService;
 use App\Exceptions\ValidationException;
-use App\Exceptions\AppointmentNotFoundException;
-use App\Exceptions\AlreadyPaidException;
-use App\Exceptions\InvalidPaymentMethodException;
-use App\Exceptions\InvalidPaymentStatusException;
+use App\Exceptions\appointment\AppointmentNotFoundException;
+use App\Exceptions\financial\AlreadyPaidException;
+use App\Exceptions\financial\InvalidPaymentMethodException;
+use App\Exceptions\financial\InvalidPaymentStatusException;
 
 /**
  * FinancialController - Gerencia o financeiro da clínica

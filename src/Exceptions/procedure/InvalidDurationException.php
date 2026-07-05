@@ -1,5 +1,6 @@
 <?php
-namespace App\Exceptions;
+namespace App\Exceptions\procedure;
+use App\Exceptions\BusinessException;
 
 class InvalidDurationException extends BusinessException {
 

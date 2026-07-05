@@ -10,18 +10,18 @@ use App\Repositories\UserRepository;
 
 use App\Exceptions\ValidationException;
 
-use App\Exceptions\AppointmentConflictException;
-use App\Exceptions\AppointmentNotFoundException;
-use App\Exceptions\PastAppointmentException;
-use App\Exceptions\NoShowTimeException;
+use App\Exceptions\appointment\AppointmentConflictException;
+use App\Exceptions\appointment\AppointmentNotFoundException;
+use App\Exceptions\appointment\PastAppointmentException;
+use App\Exceptions\appointment\NoShowTimeException;
 use App\Exceptions\appointment\RecurrenceLimitExceededException;
 
-use App\Exceptions\UserNotFoundException;
-use App\Exceptions\InactiveUserException;
-use App\Exceptions\InvalidUserRoleException;
+use App\Exceptions\user\UserNotFoundException;
+use App\Exceptions\user\InactiveUserException;
+use App\Exceptions\user\InvalidUserRoleException;
 
-use App\Exceptions\ProcedureNotFoundException;
-use App\Exceptions\InactiveProcedureException;
+use App\Exceptions\procedure\ProcedureNotFoundException;
+use App\Exceptions\procedure\InactiveProcedureException;
 use InvalidArgumentException;
 use DomainException;
 

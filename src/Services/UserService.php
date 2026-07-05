@@ -2,7 +2,7 @@
 namespace App\Services;
 
 use App\Repositories\UserRepository;
-use App\Exceptions\DuplicateUserException;
+use App\Exceptions\user\DuplicateUserException;
 use App\Exceptions\InvalidEmailException;
 use App\Exceptions\WeakPasswordException;
 use App\Exceptions\ValidationException;
