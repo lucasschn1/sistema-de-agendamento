@@ -3,17 +3,17 @@ namespace App\Services;
 
 use App\Repositories\UserRepository;
 use App\Exceptions\user\DuplicateUserException;
-use App\Exceptions\InvalidEmailException;
-use App\Exceptions\WeakPasswordException;
+use App\Exceptions\user\InvalidEmailException;
+use App\Exceptions\user\WeakPasswordException;
 use App\Exceptions\ValidationException;
 use App\Models\User;
 use DomainException;
-use App\Exceptions\InactiveUserException;
+use App\Exceptions\user\InactiveUserException;
 use InvalidArgumentException;
-use App\Exceptions\InvalidUserRoleException;
+use App\Exceptions\user\InvalidUserRoleException;
 use App\Exceptions\UnauthorizedException;
-use App\Exceptions\UserNotFoundException;
-use App\Exceptions\UserHasFutureAppointmentsException;
+use App\Exceptions\user\UserNotFoundException;
+use App\Exceptions\user\UserHasFutureAppointmentsException;
 
 /**
  * Camada de Serviço para gerenciamento de usuários
@@ -75,11 +75,11 @@ class UserService {
             return $this->userRepo->createPatient($user);
 
         } catch (DomainException $e) {
-            if (str_contains($e->getMessage(), 'Email já castrado')) {
+            if (str_contains($e->getMessage(), 'Email já cadastrado')) {
                 throw new DuplicateUserException('e-mail');
             }
 
-            if (str_contains($e->getMessage(), 'CPF já castrado')) {
+            if (str_contains($e->getMessage(), 'CPF já cadastrado')) {
                 throw new DuplicateUserException('CPF');
             }
             throw $e;
@@ -131,11 +131,11 @@ class UserService {
         try {
             return $this->userRepo->createProfessional($user);
         } catch (DomainException $e) {
-            if (str_contains($e->getMessage(), 'Email já cadatrado')) {
+            if (str_contains($e->getMessage(), 'Email já cadastrado')) {
                 throw new DuplicateUserException('e-mail');
             }
 
-            if (str_contains($e->getMessage(), 'CPF já castrado')) {
+            if (str_contains($e->getMessage(), 'CPF já cadastrado')) {
                 throw new DuplicateUserException('CPF');
             }
 
@@ -207,7 +207,7 @@ class UserService {
         }
 
         // valida o email fornecido
-        if (isset($data['emial'])) {
+        if (isset($data['email'])) {
             $this->validateEmail($data['email']);
         }
 
@@ -424,7 +424,7 @@ class UserService {
      * @return User[]
      */
     public function searchByName(string $name, bool $activeOnly = true): array {
-        if (strlen($name) > 2) {
+        if (strlen($name) < 2) {
             throw new ValidationException(['name' => 'Nome deve ter pelo menos 2 caracteres']);
         }
 
@@ -596,7 +596,7 @@ class UserService {
             $data['name'] = trim($data['name']);
         }
 
-        if (isset($data['name'])) {
+        if (isset($data['email'])) {
             $data['email'] = strtolower(trim($data['email']));
         }
 

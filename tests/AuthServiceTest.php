@@ -55,18 +55,28 @@ class AuthServiceTest extends TestCase {
     // HELPERS PRIVADOS
     // =========================================================
 
+    /**
+     * Cria um mock de User com valores configuráveis.
+     *
+     * IMPORTANTE: os valores de isActive/isDeleted/validatePassword devem
+     * ser definidos AQUI, no momento da criação do mock, e não sobrescritos
+     * depois via ->method(...)->willReturn(...) em cima do mock já criado.
+     */
     private function makeActiveUser(
-        int    $id   = 1,
-        string $role = 'professional'
+        int    $id            = 1,
+        string $role          = 'professional',
+        bool   $isActive      = true,
+        bool   $isDeleted     = false,
+        bool   $validPassword = true
     ): MockObject {
         $mock = $this->createMock(User::class);
         $mock->method('getId')->willReturn($id);
         $mock->method('getRole')->willReturn($role);
         $mock->method('getName')->willReturn('Dr. Carlos');
         $mock->method('getEmail')->willReturn('carlos@clinica.com');
-        $mock->method('isActive')->willReturn(true);
-        $mock->method('isDeleted')->willReturn(false);
-        //$mock->method('validatePassword')->willReturn(true);
+        $mock->method('isActive')->willReturn($isActive);
+        $mock->method('isDeleted')->willReturn($isDeleted);
+        $mock->method('validatePassword')->willReturn($validPassword);
         $mock->method('toPublicArray')->willReturn([
             'id'   => $id,
             'name' => 'Dr. Carlos',
@@ -150,8 +160,7 @@ class AuthServiceTest extends TestCase {
     {
         $this->expectException(UnauthorizedException::class);
 
-        $user = $this->makeActiveUser();
-        $user->method('validatePassword')->willReturn(false);
+        $user = $this->makeActiveUser(validPassword: false);
 
         $this->userRepositoryMock
             ->method('findByEmail')
@@ -164,8 +173,7 @@ class AuthServiceTest extends TestCase {
     {
         $this->expectException(InactiveUserException::class);
 
-        $user = $this->makeActiveUser();
-        $user->method('isActive')->willReturn(false);
+        $user = $this->makeActiveUser(isActive: false);
 
         $this->userRepositoryMock
             ->method('findByEmail')
@@ -180,8 +188,7 @@ class AuthServiceTest extends TestCase {
         // A mensagem deve ser idêntica à de credenciais erradas — segurança
         $this->expectException(UnauthorizedException::class);
 
-        $user = $this->makeActiveUser();
-        $user->method('isDeleted')->willReturn(true);
+        $user = $this->makeActiveUser(isDeleted: true);
 
         $this->userRepositoryMock
             ->method('findByEmail')
@@ -262,8 +269,7 @@ class AuthServiceTest extends TestCase {
         $this->expectException(UnauthorizedException::class);
 
         $activeUser   = $this->makeActiveUser(1);
-        $inactiveUser = $this->makeActiveUser(1);
-        $inactiveUser->method('isActive')->willReturn(false);
+        $inactiveUser = $this->makeActiveUser(1, isActive: false);
 
         // Login com usuário ativo
         $this->userRepositoryMock
@@ -373,8 +379,7 @@ class AuthServiceTest extends TestCase {
         $this->expectException(InactiveUserException::class);
 
         $activeUser   = $this->makeActiveUser(1);
-        $inactiveUser = $this->makeActiveUser(1);
-        $inactiveUser->method('isActive')->willReturn(false);
+        $inactiveUser = $this->makeActiveUser(1, isActive: false);
 
         $this->userRepositoryMock
             ->method('findByEmail')

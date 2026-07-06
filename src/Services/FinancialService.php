@@ -38,7 +38,7 @@ class FinancialService {
         'Dinheiro',
         'Cartão de Crédito',
         'Cartão de Débito',
-        'Tranferência',
+        'Transferência',
     ];
 
     public function __construct(AppointmentRepository $appointmentRepository) {
@@ -75,12 +75,17 @@ class FinancialService {
         // 3 - busca agendamentos
         $appointment = $this->appointmentRepository->findById($appointmentId, false);
 
-        // 4 - verifica se foi pago
+        // 4 - verifica se existe
+        if (!$appointment) {
+            throw new AppointmentNotFoundException($appointmentId);
+        }
+
+        // 5 - verifica se foi pago
         if ($appointment->isPaid()) {
             throw new AlreadyPaidException();
         }
 
-        // 5 - verifica se status permite pagamento
+        // 6 - verifica se status permite pagamento
         // regra: só paga sessões 'completed' ou 'confirmed'
         if (!$appointment->canBePaid()) {
             throw new InvalidPaymentStatusException(
@@ -89,7 +94,7 @@ class FinancialService {
             );
         }
 
-        // 6 - chama repository (que chama sp_register_payment)
+        // 7 - chama repository (que chama sp_register_payment)
         // banco valida novamente via SIGNAL SQLSTATE 4500
         try {
             return $this->appointmentRepository->registerPayment(
@@ -235,7 +240,7 @@ class FinancialService {
                     $summary['cancelled_value'] += $appointment->getPrice();
                     break;
                 
-                case 'no-show':
+                case 'no_show':
                     $summary['total_no_show']++;
                     //no-show pode ou não ser cobrado 
                     break;
