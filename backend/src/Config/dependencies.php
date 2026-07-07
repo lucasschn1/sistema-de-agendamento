@@ -1,5 +1,4 @@
 <?php
-namespace App\Config;
 
 /**
  * dependencies.php - Container de Injeção de Dependências
@@ -19,11 +18,17 @@ use App\Config\Database;
 use App\Repositories\UserRepository;
 use App\Repositories\ServiceRepository;
 use App\Repositories\AppointmentRepository;
-
 use App\Services\UserService;
-use ProcedureService;
+use App\Services\ProcedureService;
 use App\Services\AppointmentService;
-use FinancialService;
+use App\Services\FinancialService;
+use App\service\AuthService;
+use App\Controllers\AuthController;
+use App\Controllers\UserController;
+use App\Controllers\ProcedureController;
+use App\Controllers\AppointmentController;
+use App\Controllers\FinancialController;
+use App\Middleware\AuthMiddleware;
 
 // =========================================================
 // INFRAESTRUTURA
@@ -83,25 +88,29 @@ $financialController   = new FinancialController($financialService);
 
 return [
     // Infraestrutura
-    'pdo'                  => $pdo,
+    'pdo'                            => $pdo,
 
-    // Repositories (disponíveis para uso direto se necessário)
-    'UserRepository'       => $userRepository,
-    'ServiceRepository'    => $serviceRepository,
-    'AppointmentRepository'=> $appointmentRepository,
+    // Repositories
+    App\Repositories\UserRepository::class        => $userRepository,
+    App\Repositories\ServiceRepository::class     => $serviceRepository,
+    App\Repositories\AppointmentRepository::class => $appointmentRepository,
 
     // Services
-    'UserService'          => $userService,
-    'ProcedureService'     => $procedureService,
-    'AppointmentService'   => $appointmentService,
-    'FinancialService'     => $financialService,
-    'AuthService'          => $authService,
+    App\Services\UserService::class        => $userService,
+    App\Services\ProcedureService::class   => $procedureService,
+    App\Services\AppointmentService::class => $appointmentService,
+    App\Services\FinancialService::class   => $financialService,
+    App\service\AuthService::class        => $authService,
+
+    // Middlewares
+    App\Middleware\AuthMiddleware::class  => new App\Middleware\AuthMiddleware($authService),
+    App\Middleware\RoleMiddleware::class  => new App\Middleware\RoleMiddleware(),
 
     // Controllers
-    'AuthController'       => $authController,
-    'UserController'       => $userController,
-    'ProcedureController'  => $procedureController,
-    'AppointmentController'=> $appointmentController,
-    'FinancialController'  => $financialController,
+    App\Controllers\AuthController::class        => $authController,
+    App\Controllers\UserController::class        => $userController,
+    App\Controllers\ProcedureController::class   => $procedureController,
+    App\Controllers\AppointmentController::class => $appointmentController,
+    App\Controllers\FinancialController::class   => $financialController,
 ];
 ?>

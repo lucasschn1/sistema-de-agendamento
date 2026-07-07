@@ -84,15 +84,16 @@ Class Database {
      * @throws RuntimeException
      */
     private function validateEnvVars(): void {
-        $required = ['DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASS'];
+        $required = ['DB_HOST', 'DB_NAME', 'DB_USER'];
+        // DB_PASS é opcional — senha vazia é válida em desenvolvimento
         $missing  = [];
- 
+
         foreach ($required as $var) {
-            if (empty($_ENV[$var])) {
+            if (!isset($_ENV[$var]) || $_ENV[$var] === null) {
                 $missing[] = $var;
             }
         }
- 
+
         if (!empty($missing)) {
             throw new RuntimeException(
                 "Variáveis de ambiente ausentes: " . implode(', ', $missing) .
