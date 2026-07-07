@@ -201,7 +201,7 @@ Class Response {
         header('X-Frame-Options: DENY');
 
         // Headers CORS — ajuste o domínio em produção
-        $allowedOrigin = $_ENV['APP_URL'] ?? '*';
+        $allowedOrigin = $_ENV['FRONTEND_URL'] ?? '*';
         header("Access-Control-Allow-Origin: {$allowedOrigin}");
         header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
         header('Access-Control-Allow-Headers: Content-Type, Authorization');
@@ -236,13 +236,14 @@ Class Response {
      * Chamado no index.php antes do roteamento
      */
     public static function handlePreflight(): void {
-        if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-            http_response_code(204);
-            header('Access-Control-Allow-Origin: *');
-            header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
-            header('Access-Control-Allow-Headers: Content-Type, Authorization');
-            header('Access-Control-Max-Age: 86400'); // cache do preflight por 24h
-            exit;
-        }
+    if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+        http_response_code(204);
+        $allowedOrigin = $_ENV['FRONTEND_URL'] ?? '*';
+        header("Access-Control-Allow-Origin: {$allowedOrigin}");
+        header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+        header('Access-Control-Allow-Headers: Content-Type, Authorization');
+        header('Access-Control-Max-Age: 86400');
+        exit;
     }
+}
 }

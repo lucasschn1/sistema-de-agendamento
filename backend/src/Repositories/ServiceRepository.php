@@ -227,7 +227,7 @@ class ServiceRepository {
 
             $stmt->execute([
                 'name'             => $service->getName(),
-                'description'      => $service->getDeletedAt(),
+                'description'      => $service->getDescription(),
                 'price'            => $service->getPrice(),
                 'duration_minutes' => $service->getDurationMinutes(),
                 'category'         => $service->getCategory(),

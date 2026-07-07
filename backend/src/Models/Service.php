@@ -84,7 +84,7 @@ class Service {
     }
 
     public function getFormattedPrice(): string {
-        return 'R$' . number_format($this->price, 2, ',', '.');
+        return 'R$ ' . number_format($this->price, 2, ',', '.');
     }
 
     public function getFormattedDuration(): string {

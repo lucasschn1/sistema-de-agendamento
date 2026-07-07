@@ -139,14 +139,12 @@ Class User {
             'id'                => $this->id,
             'name'              => $this->name,
             'email'             => $this->email,
-            'cpf'               => $this->cpf,
-            'phone'             => $this->phone,
-            'birthdate'         => $this->birthdate?->format('Y-m-d'),
             'role'              => $this->role,
-            'professional_Type' => $this->professionalType,
-            'council_Id'        => $this->councilId,
+            'professional_type' => $this->professionalType,
+            'council_id'        => $this->councilId,
             'specialty'         => $this->specialty,
             'bio'               => $this->bio,
+            'active'            => $this->active,
         ];
     }
 
