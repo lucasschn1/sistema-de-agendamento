@@ -4,6 +4,7 @@ namespace App\Controllers;
 use App\Core\Request;
 use App\Core\Response;
 use App\Services\AppointmentService;
+use App\Services\EmailService;
 use App\Exceptions\ValidationException;
 use App\Exceptions\appointment\AppointmentNotFoundException;
 use App\Exceptions\appointment\AppointmentConflictException;
@@ -39,9 +40,11 @@ use App\Exceptions\appointment\NoShowTimeException;
  */
 Class AppointmentController {
     private AppointmentService $appointmentService;
+    private EmailService $emailService;
 
-    public function __construct(AppointmentService $appointmentService)  {
+    public function __construct(AppointmentService $appointmentService, EmailService $emailService)  {
         $this->appointmentService = $appointmentService;
+        $this->emailService = $emailService;
     }
 
     // =========================================================
@@ -187,6 +190,8 @@ Class AppointmentController {
             $id = $this->appointmentService->createAppointment($request->body());
             $appointment = $this->appointmentService->getAppointmentById($id);
 
+            $this->emailService->sendAppointmentCreated($appointment);
+
             return Response::created($appointment->toPublicArray());
 
         } catch (ValidationException $e) {
@@ -303,8 +308,10 @@ Class AppointmentController {
         try {
             $id = (int) $request->param('id');
             $this->appointmentService->confirmAppointment($id);
- 
+
             $appointment = $this->appointmentService->getAppointmentById($id);
+            $this->emailService->sendAppointmentConfirmed($appointment);
+
             return Response::json($appointment->toPublicArray(), 200, 'Agendamento confirmado');
  
         } catch (AppointmentNotFoundException $e) {

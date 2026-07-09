@@ -324,7 +324,7 @@ class UserRepository {
     public function update(User $user): bool {
 
         // Verifica se o usuário existe e não está soft-deleted
-        if (!$user->getId() || $this->findById($user->getId())) {
+        if (!$user->getId() || !$this->findById($user->getId())) {
             throw new InvalidArgumentException(
                 "Usuário com ID " . $user->getId() . " não encontrado"
             );
@@ -342,14 +342,14 @@ class UserRepository {
         }
 
         try{
-            $sql = "UPDATE user SET
+            $sql = "UPDATE users SET
                     name = :name,
                     email = :email,
                     cpf = :cpf,
-                    phone = :phone
+                    phone = :phone,
                     birthdate = :birthdate,
                     professional_type = :professional_type,
-                    council_id = :council_id
+                    council_id = :council_id,
                     specialty = :specialty,
                     bio = :bio,
                     active = :active
@@ -363,7 +363,7 @@ class UserRepository {
                 'email'             => $user->getEmail(),
                 'cpf'               => $user->getCpf() ?: null, // string vazia colide com a constraint UNIQUE
                 'phone'             => $user->getPhone(),
-                'birthdate'         => $user->getBirthdate(),
+                'birthdate'         => $user->getBirthdate()?->format('Y-m-d'),
                 'professional_type' => $user->getProfessionalType(),
                 'council_id'        => $user->getCouncilId(),
                 'specialty'         => $user->getSpecialty(),
@@ -621,7 +621,7 @@ class UserRepository {
             $sql .= " ORDER BY name LIMIT 50";
 
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute(['name' => "%{name}%"]);
+            $stmt->execute(['name' => '%' . $name . '%']);
             $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             return array_map(fn($data) => new User($data), $results);

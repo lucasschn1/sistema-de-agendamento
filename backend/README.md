@@ -45,6 +45,9 @@ mysql -u root -p < database/schema2.sql
 | `JWT_ALGORITHM` | Algoritmo de assinatura (`HS256`) |
 | `BCRYPT_COST` | Custo do hash de senha |
 | `FRONTEND_URL` | Origem liberada no CORS (deve bater com a porta em que o frontend roda) |
+| `RESEND_API_KEY` | API key do [Resend](https://resend.com) para envio de e-mails de agendamento. Vazio = envio desligado (não quebra a aplicação) |
+| `RESEND_FROM_EMAIL` | Remetente dos e-mails. Sem domínio verificado no Resend, use `onboarding@resend.dev` (só entrega para o e-mail da conta) |
+| `RESEND_FROM_NAME` | Nome exibido no remetente |
 
 ### Rodando
 

@@ -3,6 +3,7 @@ import { Button, Table, Badge, Alert, Spinner, Form, InputGroup } from 'react-bo
 import { listPatients, searchUsers, deactivateUser, restoreUser } from '../../api/users'
 import { parseApiError } from '../../utils/apiError'
 import { useToast } from '../../context/ToastContext'
+import { usePersistedState } from '../../hooks/usePersistedState'
 import PatientFormModal from './PatientFormModal'
 import ConfirmModal from '../../components/ConfirmModal'
 
@@ -14,7 +15,8 @@ export default function Patients() {
   const [error, setError]       = useState('')
 
   const [search, setSearch]           = useState('')
-  const [showInactive, setShowInactive] = useState(false)
+  const [isTyping, setIsTyping]       = useState(false)
+  const [showInactive, setShowInactive] = usePersistedState('patients:showInactive', false)
 
   const [showModal, setShowModal]   = useState(false)
   const [editingPatient, setEditingPatient] = useState(null)
@@ -42,7 +44,10 @@ export default function Patients() {
   }, [search, showInactive])
 
   useEffect(() => {
-    const timer = setTimeout(load, 300) // debounce da busca
+    const timer = setTimeout(() => {
+      setIsTyping(false)
+      load()
+    }, 300) // debounce da busca
     return () => clearTimeout(timer)
   }, [load])
 
@@ -88,8 +93,16 @@ export default function Patients() {
           <Form.Control
             placeholder="Buscar por nome..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setIsTyping(true)
+            }}
           />
+          {(isTyping || loading) && (
+            <InputGroup.Text>
+              <Spinner animation="border" size="sm" />
+            </InputGroup.Text>
+          )}
         </InputGroup>
 
         <Form.Check

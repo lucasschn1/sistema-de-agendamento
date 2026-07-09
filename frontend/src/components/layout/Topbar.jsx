@@ -22,7 +22,7 @@ function resolveTitle(pathname) {
 // COMPONENTE TOPBAR
 // =============================================
 
-export default function Topbar({ title, children }) {
+export default function Topbar({ title, children, onToggleSidebar }) {
   const location = useLocation()
 
   const pageTitle = title ?? resolveTitle(location.pathname)
@@ -36,7 +36,12 @@ export default function Topbar({ title, children }) {
 
   return (
     <header className="topbar">
-      <h1 className="topbar-title">{pageTitle}</h1>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <button className="topbar-menu-btn" onClick={onToggleSidebar} aria-label="Abrir menu">
+          ☰
+        </button>
+        <h1 className="topbar-title">{pageTitle}</h1>
+      </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         {children}

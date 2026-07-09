@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Button, Alert, Spinner } from 'react-bootstrap'
+import { Button, Alert, Spinner, Form } from 'react-bootstrap'
 import { useAuth } from '../../context/AuthContext'
 import {
   listAppointments,
@@ -9,8 +9,10 @@ import {
   markNoShow,
   cancelRecurrence,
 } from '../../api/appointments'
+import { listProfessionals } from '../../api/users'
 import { parseApiError } from '../../utils/apiError'
 import { useToast } from '../../context/ToastContext'
+import { STATUS_META } from './statusMeta'
 import MonthCalendar from './MonthCalendar'
 import AppointmentCard from './AppointmentCard'
 import AppointmentFormModal from './AppointmentFormModal'
@@ -50,6 +52,15 @@ export default function Appointments() {
   const [editingAppointment, setEditingAppointment] = useState(null)
   const [reasonModal, setReasonModal] = useState(null) // { title, required, action, appointment }
 
+  const [professionals, setProfessionals] = useState([])
+  const [filterProfessionalId, setFilterProfessionalId] = useState('')
+  const [filterStatus, setFilterStatus] = useState('')
+
+  useEffect(() => {
+    if (isProfessional()) return
+    listProfessionals().then(setProfessionals).catch(() => {})
+  }, [isProfessional])
+
   const loadAppointments = useCallback(async () => {
     setLoading(true)
     setError('')
@@ -83,22 +94,30 @@ export default function Appointments() {
     loadAppointments()
   }, [loadAppointments])
 
-  const countsByDate = useMemo(() => {
+  const filteredAppointments = useMemo(() => {
+    return appointments.filter((apt) => {
+      if (filterProfessionalId && String(apt.professional?.id) !== filterProfessionalId) return false
+      if (filterStatus && apt.status !== filterStatus) return false
+      return true
+    })
+  }, [appointments, filterProfessionalId, filterStatus])
+
+  // Contagem por dia E por status, para colorir os indicadores do calendário
+  const statusCountsByDate = useMemo(() => {
     const counts = {}
-    // Cancelados não contam como agendamento ativo no indicador do calendário
-    for (const apt of appointments) {
-      if (apt.status === 'cancelled') continue
+    for (const apt of filteredAppointments) {
       const key = apt.start_time.slice(0, 10)
-      counts[key] = (counts[key] ?? 0) + 1
+      counts[key] ??= {}
+      counts[key][apt.status] = (counts[key][apt.status] ?? 0) + 1
     }
     return counts
-  }, [appointments])
+  }, [filteredAppointments])
 
   const dayAppointments = useMemo(() => {
-    return appointments
+    return filteredAppointments
       .filter((apt) => apt.start_time.slice(0, 10) === selectedDate)
       .sort((a, b) => a.start_time.localeCompare(b.start_time))
-  }, [appointments, selectedDate])
+  }, [filteredAppointments, selectedDate])
 
   const goToMonth = (offset) => {
     const next = new Date(year, month + offset, 1)
@@ -168,6 +187,32 @@ export default function Appointments() {
   return (
     <div className="appointments-page">
       <div className="appointments-toolbar">
+        <div className="appointments-filters">
+          {!isProfessional() && (
+            <Form.Select
+              size="sm"
+              value={filterProfessionalId}
+              onChange={(e) => setFilterProfessionalId(e.target.value)}
+            >
+              <option value="">Todos os profissionais</option>
+              {professionals.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </Form.Select>
+          )}
+
+          <Form.Select
+            size="sm"
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+          >
+            <option value="">Todos os status</option>
+            {Object.entries(STATUS_META).map(([value, meta]) => (
+              <option key={value} value={value}>{meta.label}</option>
+            ))}
+          </Form.Select>
+        </div>
+
         <Button variant="primary" onClick={() => setShowCreateModal(true)}>
           + Novo agendamento
         </Button>
@@ -183,7 +228,7 @@ export default function Appointments() {
         <MonthCalendar
           year={year}
           month={month}
-          countsByDate={countsByDate}
+          statusCountsByDate={statusCountsByDate}
           selectedDate={selectedDate}
           onSelectDate={setSelectedDate}
           onPrevMonth={() => goToMonth(-1)}

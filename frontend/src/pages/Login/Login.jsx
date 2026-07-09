@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Container, Row, Col, Card, Form, Button, Alert, Spinner } from 'react-bootstrap'
 import { useAuth } from '../../context/AuthContext'
+import PasswordInput from '../../components/PasswordInput'
 
 export default function Login() {
   const navigate        = useNavigate()
@@ -81,8 +82,7 @@ export default function Login() {
                 {/* Senha */}
                 <Form.Group className="mb-4">
                   <Form.Label>Senha</Form.Label>
-                  <Form.Control
-                    type="password"
+                  <PasswordInput
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}

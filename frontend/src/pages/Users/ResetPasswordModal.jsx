@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Modal, Form, Button, Alert, Spinner } from 'react-bootstrap'
 import { resetUserPassword } from '../../api/users'
 import { parseApiError } from '../../utils/apiError'
+import PasswordInput from '../../components/PasswordInput'
 
 // =============================================
 // MODAL — REDEFINIR SENHA (uso administrativo)
@@ -54,8 +55,7 @@ export default function ResetPasswordModal({ show, user, onClose, onSaved }) {
 
           <Form.Group>
             <Form.Label>Nova senha</Form.Label>
-            <Form.Control
-              type="password"
+            <PasswordInput
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               minLength={6}

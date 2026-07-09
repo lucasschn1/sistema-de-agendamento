@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Modal, Form, Button, Alert, Spinner, Row, Col } from 'react-bootstrap'
 import { listPatients, listProfessionals } from '../../api/users'
 import { listProcedures } from '../../api/procedures'
-import { createAppointment, createRecurrence } from '../../api/appointments'
+import { createAppointment, createRecurrence, checkAvailability } from '../../api/appointments'
 import { parseApiError, parseApiFieldErrors } from '../../utils/apiError'
 
 const WEEKDAYS = [
@@ -42,6 +42,8 @@ export default function AppointmentFormModal({ show, onClose, onCreated, default
   const [saving, setSaving]         = useState(false)
   const [loadingOptions, setLoadingOptions] = useState(false)
 
+  const [availability, setAvailability] = useState(null) // null | 'checking' | 'available' | 'unavailable'
+
   // Carrega listas de apoio (pacientes, profissionais, procedimentos) ao abrir o modal
   useEffect(() => {
     if (!show) return
@@ -70,6 +72,31 @@ export default function AppointmentFormModal({ show, onClose, onCreated, default
       .catch((err) => setError(parseApiError(err)))
       .finally(() => setLoadingOptions(false))
   }, [show, defaultDate])
+
+  // Checa disponibilidade em tempo real assim que profissional, data, horário e procedimento estão definidos
+  useEffect(() => {
+    if (!show || isRecurring || !professionalId || !date || !time || !serviceId) {
+      setAvailability(null)
+      return
+    }
+
+    const service = procedures.find((s) => String(s.id) === String(serviceId))
+    if (!service) return
+
+    setAvailability('checking')
+
+    const timer = setTimeout(() => {
+      checkAvailability({
+        professional_id: professionalId,
+        date: `${date} ${time}:00`,
+        duration: service.duration_minutes,
+      })
+        .then((result) => setAvailability(result.available ? 'available' : 'unavailable'))
+        .catch(() => setAvailability(null))
+    }, 400)
+
+    return () => clearTimeout(timer)
+  }, [show, isRecurring, professionalId, date, time, serviceId, procedures])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -280,6 +307,19 @@ export default function AppointmentFormModal({ show, onClose, onCreated, default
                     </Form.Group>
                   </Col>
                 </Row>
+              )}
+
+              {!isRecurring && availability && (
+                <div className={`availability-hint availability-${availability} mb-3`}>
+                  {availability === 'checking' && (
+                    <>
+                      <Spinner animation="border" size="sm" className="me-2" />
+                      Checando disponibilidade...
+                    </>
+                  )}
+                  {availability === 'available' && '✓ Horário disponível'}
+                  {availability === 'unavailable' && '✕ Horário indisponível para este profissional'}
+                </div>
               )}
 
               <Form.Group>

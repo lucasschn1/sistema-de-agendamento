@@ -1,8 +1,13 @@
+import { statusClassName, STATUS_META } from './statusMeta'
+
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 const MONTH_NAMES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ]
+
+// Ordem fixa de exibição dos pontos de status em cada dia
+const STATUS_ORDER = ['scheduled', 'confirmed', 'completed', 'no_show', 'cancelled']
 
 function toDateKey(date) {
   const y = date.getFullYear()
@@ -25,7 +30,7 @@ function buildGridDays(year, month) {
   })
 }
 
-export default function MonthCalendar({ year, month, countsByDate, selectedDate, onSelectDate, onPrevMonth, onNextMonth, onToday }) {
+export default function MonthCalendar({ year, month, statusCountsByDate, selectedDate, onSelectDate, onPrevMonth, onNextMonth, onToday }) {
   const days = buildGridDays(year, month)
   const todayKey = toDateKey(new Date())
 
@@ -52,7 +57,7 @@ export default function MonthCalendar({ year, month, countsByDate, selectedDate,
           const isCurrentMonth = date.getMonth() === month
           const isToday = key === todayKey
           const isSelected = key === selectedDate
-          const count = countsByDate[key] ?? 0
+          const statusCounts = statusCountsByDate[key]
 
           return (
             <button
@@ -66,10 +71,27 @@ export default function MonthCalendar({ year, month, countsByDate, selectedDate,
               onClick={() => onSelectDate(key)}
             >
               <span className="month-calendar-day-number">{date.getDate()}</span>
-              {count > 0 && <span className="month-calendar-day-dot">{count}</span>}
+              {statusCounts && (
+                <span className="month-calendar-day-dots">
+                  {STATUS_ORDER.filter((status) => statusCounts[status] > 0).map((status) => (
+                    <span key={status} className={`month-calendar-status-dot ${statusClassName(status)}`}>
+                      {statusCounts[status]}
+                    </span>
+                  ))}
+                </span>
+              )}
             </button>
           )
         })}
+      </div>
+
+      <div className="month-calendar-legend">
+        {STATUS_ORDER.map((status) => (
+          <span key={status} className="month-calendar-legend-item">
+            <span className={`month-calendar-legend-dot ${statusClassName(status)}`} />
+            {STATUS_META[status].label}
+          </span>
+        ))}
       </div>
     </div>
   )

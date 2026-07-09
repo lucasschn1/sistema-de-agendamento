@@ -62,7 +62,7 @@ const Icons = {
 // COMPONENTE SIDEBAR
 // =============================================
 
-export default function Sidebar() {
+export default function Sidebar({ isOpen, onClose }) {
   const { user, logout, isAdmin } = useAuth()
   const navigate = useNavigate()
 
@@ -81,7 +81,12 @@ export default function Sidebar() {
   }[user?.role] ?? user?.role
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${isOpen ? ' is-open' : ''}`}>
+
+      {/* Fecha o menu — só visível em mobile */}
+      <button className="sidebar-close" onClick={onClose} aria-label="Fechar menu">
+        ✕
+      </button>
 
       {/* Logo */}
       <div className="sidebar-logo">

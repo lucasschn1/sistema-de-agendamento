@@ -3,6 +3,7 @@ import { Button, Table, Badge, Alert, Spinner, Form, Nav } from 'react-bootstrap
 import { listUsers, deactivateUser, restoreUser } from '../../api/users'
 import { parseApiError } from '../../utils/apiError'
 import { useToast } from '../../context/ToastContext'
+import { usePersistedState } from '../../hooks/usePersistedState'
 import UserFormModal from './UserFormModal'
 import ResetPasswordModal from './ResetPasswordModal'
 import ConfirmModal from '../../components/ConfirmModal'
@@ -10,11 +11,11 @@ import ConfirmModal from '../../components/ConfirmModal'
 export default function Users() {
   const { showToast } = useToast()
 
-  const [role, setRole] = useState('professional') // 'professional' | 'admin'
+  const [role, setRole] = usePersistedState('users:role', 'professional') // 'professional' | 'admin'
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState('')
-  const [showInactive, setShowInactive] = useState(false)
+  const [showInactive, setShowInactive] = usePersistedState('users:showInactive', false)
 
   const [showModal, setShowModal]   = useState(false)
   const [editingUser, setEditingUser] = useState(null)

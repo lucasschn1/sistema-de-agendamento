@@ -22,6 +22,7 @@ use App\Services\UserService;
 use App\Services\ProcedureService;
 use App\Services\AppointmentService;
 use App\Services\FinancialService;
+use App\Services\EmailService;
 use App\service\AuthService;
 use App\Controllers\AuthController;
 use App\Controllers\UserController;
@@ -68,6 +69,8 @@ $appointmentService = new AppointmentService(
 
 $financialService = new FinancialService($appointmentRepository);
 
+$emailService = new EmailService();
+
 $authService = new AuthService($userRepository); // criado na próxima etapa (JWT)
 
 
@@ -78,7 +81,7 @@ $authService = new AuthService($userRepository); // criado na próxima etapa (JW
 $authController        = new AuthController($authService);
 $userController        = new UserController($userService);
 $procedureController   = new ProcedureController($procedureService);
-$appointmentController = new AppointmentController($appointmentService);
+$appointmentController = new AppointmentController($appointmentService, $emailService);
 $financialController   = new FinancialController($financialService);
 
 
@@ -100,6 +103,7 @@ return [
     App\Services\ProcedureService::class   => $procedureService,
     App\Services\AppointmentService::class => $appointmentService,
     App\Services\FinancialService::class   => $financialService,
+    App\Services\EmailService::class       => $emailService,
     App\service\AuthService::class        => $authService,
 
     // Middlewares

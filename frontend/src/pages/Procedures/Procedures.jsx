@@ -3,6 +3,7 @@ import { Button, Table, Badge, Alert, Spinner, Form, InputGroup } from 'react-bo
 import { listProcedures, deactivateProcedure, activateProcedure } from '../../api/procedures'
 import { parseApiError } from '../../utils/apiError'
 import { useToast } from '../../context/ToastContext'
+import { usePersistedState } from '../../hooks/usePersistedState'
 import ProcedureFormModal from './ProcedureFormModal'
 import ConfirmModal from '../../components/ConfirmModal'
 
@@ -14,7 +15,8 @@ export default function Procedures() {
   const [error, setError]           = useState('')
 
   const [search, setSearch]             = useState('')
-  const [showInactive, setShowInactive] = useState(false)
+  const [isTyping, setIsTyping]         = useState(false)
+  const [showInactive, setShowInactive] = usePersistedState('procedures:showInactive', false)
 
   const [showModal, setShowModal]           = useState(false)
   const [editingProcedure, setEditingProcedure] = useState(null)
@@ -38,7 +40,10 @@ export default function Procedures() {
   }, [search, showInactive])
 
   useEffect(() => {
-    const timer = setTimeout(load, 300)
+    const timer = setTimeout(() => {
+      setIsTyping(false)
+      load()
+    }, 300)
     return () => clearTimeout(timer)
   }, [load])
 
@@ -84,8 +89,16 @@ export default function Procedures() {
           <Form.Control
             placeholder="Buscar procedimento..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setIsTyping(true)
+            }}
           />
+          {(isTyping || loading) && (
+            <InputGroup.Text>
+              <Spinner animation="border" size="sm" />
+            </InputGroup.Text>
+          )}
         </InputGroup>
 
         <Form.Check

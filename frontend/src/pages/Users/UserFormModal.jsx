@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Modal, Form, Button, Alert, Spinner } from 'react-bootstrap'
 import { createProfessional, createAdmin, updateUser } from '../../api/users'
 import { parseApiError, parseApiFieldErrors } from '../../utils/apiError'
+import PasswordInput from '../../components/PasswordInput'
 
 const PROFESSIONAL_TYPES = ['Psicólogo', 'Psicopedagogo', 'Neuropsicólogo', 'Terapeuta Ocupacional']
 
@@ -133,15 +134,14 @@ export default function UserFormModal({ show, user, onClose, onSaved }) {
           {!isEditing && (
             <Form.Group className="mb-3">
               <Form.Label>Senha</Form.Label>
-              <Form.Control
-                type="password"
+              <PasswordInput
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 isInvalid={!!fieldErrors.password}
+                feedback={fieldErrors.password}
                 minLength={6}
                 required
               />
-              <Form.Control.Feedback type="invalid">{fieldErrors.password}</Form.Control.Feedback>
             </Form.Group>
           )}
 

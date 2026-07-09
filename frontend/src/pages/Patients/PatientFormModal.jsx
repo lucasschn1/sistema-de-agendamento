@@ -3,6 +3,7 @@ import { Modal, Form, Button, Alert, Spinner } from 'react-bootstrap'
 import { createPatient, updateUser } from '../../api/users'
 import { parseApiError, parseApiFieldErrors } from '../../utils/apiError'
 import { maskCpf, maskPhone } from '../../utils/masks'
+import PasswordInput from '../../components/PasswordInput'
 
 // =============================================
 // MODAL — CRIAR/EDITAR PACIENTE
@@ -100,14 +101,13 @@ export default function PatientFormModal({ show, patient, onClose, onSaved }) {
             <>
               <Form.Group className="mb-3">
                 <Form.Label>Senha</Form.Label>
-                <Form.Control
-                  type="password"
+                <PasswordInput
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   isInvalid={!!fieldErrors.password}
+                  feedback={fieldErrors.password}
                   required
                 />
-                <Form.Control.Feedback type="invalid">{fieldErrors.password}</Form.Control.Feedback>
               </Form.Group>
 
               <Form.Group className="mb-3">
