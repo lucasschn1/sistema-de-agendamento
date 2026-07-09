@@ -78,6 +78,12 @@ $router->group('/api', [AuthMiddleware::class], function ($router) {
     // ── Procedimentos — leitura para professional, escrita só admin ──
 
     $router->get('/procedures',      [ProcedureController::class, 'index']); // GET /api/procedures
+
+    // Rotas GET literais (/categories, /stats) precisam vir antes de /procedures/{id},
+    // senão o Router (que casa na ordem de registro) intercepta com id="categories"/"stats"
+    $router->get('/procedures/categories', [ProcedureController::class, 'categories'], [RoleMiddleware::class . ':admin']); // GET /api/procedures/categories
+    $router->get('/procedures/stats',      [ProcedureController::class, 'stats'],      [RoleMiddleware::class . ':admin']); // GET /api/procedures/stats
+
     $router->get('/procedures/{id}', [ProcedureController::class, 'show']);  // GET /api/procedures/{id}
 
 
@@ -90,14 +96,18 @@ $router->group('/api', [AuthMiddleware::class], function ($router) {
         // ── Usuários ───────────────────────────────────────
 
         $router->get('/users',                    [UserController::class, 'index']);    // GET    /api/users
+        // Rotas GET literais (/search, /stats) precisam vir antes de /users/{id},
+        // senão o Router (que casa na ordem de registro) intercepta com id="search"/"stats"
+        $router->get('/users/search',             [UserController::class, 'search']);   // GET    /api/users/search?name=joão
+        $router->get('/users/stats',              [UserController::class, 'stats']);    // GET    /api/users/stats
         $router->get('/users/{id}',               [UserController::class, 'show']);     // GET    /api/users/{id}
         $router->post('/users/patient',           [UserController::class, 'storePatient']);      // POST   /api/users/patient
         $router->post('/users/professional',      [UserController::class, 'storeProfessional']); // POST   /api/users/professional
+        $router->post('/users/admin',             [UserController::class, 'storeAdmin']);        // POST   /api/users/admin
         $router->put('/users/{id}',               [UserController::class, 'update']);   // PUT    /api/users/{id}
         $router->patch('/users/{id}/deactivate',  [UserController::class, 'deactivate']); // PATCH  /api/users/{id}/deactivate
         $router->patch('/users/{id}/restore',     [UserController::class, 'restore']);  // PATCH  /api/users/{id}/restore
-        $router->get('/users/search',             [UserController::class, 'search']);   // GET    /api/users/search?name=joão
-        $router->get('/users/stats',              [UserController::class, 'stats']);    // GET    /api/users/stats
+        $router->patch('/users/{id}/reset-password', [UserController::class, 'resetPassword']); // PATCH /api/users/{id}/reset-password
 
 
         // ── Procedimentos (escrita) ────────────────────────
@@ -108,8 +118,6 @@ $router->group('/api', [AuthMiddleware::class], function ($router) {
         $router->patch('/procedures/{id}/deactivate', [ProcedureController::class, 'deactivate']); // PATCH  /api/procedures/{id}/deactivate
         $router->patch('/procedures/{id}/price',  [ProcedureController::class, 'updatePrice']); // PATCH  /api/procedures/{id}/price
         $router->delete('/procedures/{id}',       [ProcedureController::class, 'destroy']);    // DELETE /api/procedures/{id}
-        $router->get('/procedures/categories',    [ProcedureController::class, 'categories']); // GET    /api/procedures/categories
-        $router->get('/procedures/stats',         [ProcedureController::class, 'stats']);      // GET    /api/procedures/stats
 
 
         // ── Financeiro ────────────────────────────────────

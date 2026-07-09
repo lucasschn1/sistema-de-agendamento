@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { Container, Row, Col, Card, Form, Button, Alert, Spinner } from 'react-bootstrap'
 import { useAuth } from '../../context/AuthContext'
 
@@ -112,6 +112,10 @@ export default function Login() {
                     'Entrar'
                   )}
                 </Button>
+
+                <div className="text-center mt-3">
+                  <Link to="/forgot-password">Esqueci minha senha</Link>
+                </div>
               </Form>
             </Card.Body>
           </Card>

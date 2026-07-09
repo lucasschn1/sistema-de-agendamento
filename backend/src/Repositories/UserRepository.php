@@ -107,17 +107,19 @@ class UserRepository {
 
     public function findByRole(string $role, bool $activeOnly = false): array {
         try {
-            $sql = "SELECT * FROM users WHERE role = :role AND deleted_at IS NULL";
+            $sql = "SELECT * FROM users WHERE role = :role";
 
+            // "Desativar" faz soft-delete (deleted_at); ao pedir activeOnly=false
+            // ("mostrar inativos") o usuário desativado precisa continuar visível
             if ($activeOnly) {
-                $sql .= " AND active = 1";
+                $sql .= " AND deleted_at IS NULL AND active = 1";
             }
 
             $sql .= " ORDER BY name";
 
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute(['role' => $role]);
-            $results = $stmt->fetch(PDO::FETCH_ASSOC);
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             return array_map(fn($data) => new User($data), $results); // Retorna um array de objetos User
 
@@ -143,6 +145,15 @@ class UserRepository {
 
     public function getAllProfessionals(bool $activeOnly = true): array {
         return $this->findByRole('professional', $activeOnly);
+    }
+
+    /**
+     *  Lista todos os administradores
+     *  @return User[]
+     */
+
+    public function getAllAdmins(bool $activeOnly = true): array {
+        return $this->findByRole('admin', $activeOnly);
     }
 
     /**
@@ -280,7 +291,7 @@ class UserRepository {
                 'name'              => $user->getName(),
                 'email'             => $user->getEmail(),
                 'password'          => $user->getPasswordHash(),
-                'cpf'               => $user->getCpf(),
+                'cpf'               => $user->getCpf() ?: null, // string vazia colide com a constraint UNIQUE
                 'phone'             => $user->getPhone(),
                 'birthdate'         => $user->getBirthdate()?->format('Y-m-d'),
                 'role'              => $user->getRole(),
@@ -350,7 +361,7 @@ class UserRepository {
                 'id'                => $user->getId(),
                 'name'              => $user->getName(),
                 'email'             => $user->getEmail(),
-                'cpf'               => $user->getCpf(),
+                'cpf'               => $user->getCpf() ?: null, // string vazia colide com a constraint UNIQUE
                 'phone'             => $user->getPhone(),
                 'birthdate'         => $user->getBirthdate(),
                 'professional_type' => $user->getProfessionalType(),

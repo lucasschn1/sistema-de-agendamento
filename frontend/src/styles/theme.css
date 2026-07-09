@@ -283,6 +283,304 @@ body {
 }
 
 /* =============================================
+   AGENDAMENTOS — CALENDÁRIO
+   ============================================= */
+
+.appointments-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+
+.appointments-layout {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.month-calendar {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 16px;
+  flex: 1 1 380px;
+  min-width: 320px;
+}
+
+.month-calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.month-calendar-title {
+  font-size: 15px;
+  font-weight: 600;
+  text-transform: capitalize;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.month-calendar-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.month-calendar-arrow,
+.month-calendar-today {
+  border: 1px solid var(--border-color);
+  background: #fff;
+  border-radius: var(--radius);
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+.month-calendar-arrow:hover,
+.month-calendar-today:hover {
+  background: var(--brand-light);
+  color: var(--brand-darker);
+}
+
+.month-calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 4px;
+}
+
+.month-calendar-weekday {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  padding-bottom: 6px;
+}
+
+.month-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.month-calendar-day {
+  position: relative;
+  aspect-ratio: 1;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--text-primary);
+  transition: background 0.15s;
+}
+
+.month-calendar-day:hover {
+  background: var(--brand-light);
+}
+
+.month-calendar-day.is-outside {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+.month-calendar-day.is-today .month-calendar-day-number {
+  font-weight: 700;
+  color: var(--brand-dark);
+}
+
+.month-calendar-day.is-selected {
+  background: var(--brand);
+  color: #fff;
+}
+
+.month-calendar-day.is-selected .month-calendar-day-number {
+  color: #fff;
+}
+
+.month-calendar-day-dot {
+  position: absolute;
+  bottom: 3px;
+  right: 3px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 50%;
+  background: var(--brand-darker);
+  color: #fff;
+  font-size: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.month-calendar-day.is-selected .month-calendar-day-dot {
+  background: #fff;
+  color: var(--brand-darker);
+}
+
+/* Painel do dia selecionado */
+
+.appointments-day-panel {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 16px;
+  flex: 1 1 340px;
+  min-width: 300px;
+}
+
+.appointments-day-title {
+  text-transform: capitalize;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.appointments-day-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.appointment-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  flex-wrap: wrap;
+}
+
+.appointment-card-time {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--brand-darker);
+  min-width: 42px;
+}
+
+.appointment-card-info {
+  flex: 1;
+  min-width: 140px;
+}
+
+.appointment-card-patient {
+  margin: 0;
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.appointment-card-recurring-badge {
+  margin-left: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--brand-light);
+  color: var(--brand-darker);
+  vertical-align: middle;
+}
+
+.appointment-card-detail {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.appointment-card-notes {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.appointment-card-status {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+  height: fit-content;
+}
+
+.status-scheduled { background: rgba(26, 109, 140, 0.12);  color: var(--color-info); }
+.status-confirmed { background: rgba(59, 109, 17, 0.12);   color: var(--color-success); }
+.status-completed { background: rgba(125, 80, 96, 0.12);   color: var(--text-secondary); }
+.status-cancelled { background: rgba(192, 57, 43, 0.12);   color: var(--color-danger); }
+.status-no-show   { background: rgba(186, 117, 23, 0.12);  color: var(--color-warning); }
+
+.appointment-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+/* =============================================
+   TABELAS DE GESTÃO (Pacientes, Procedimentos, ...)
+   ============================================= */
+
+.patients-toolbar,
+.procedures-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.patients-search {
+  max-width: 280px;
+}
+
+.patients-toolbar .form-check,
+.procedures-toolbar .form-check {
+  margin: 0;
+}
+
+.patients-toolbar .patients-search,
+.patients-toolbar .form-check {
+  margin-right: auto;
+}
+
+.patients-table-card,
+.procedures-table-card,
+.financial-table-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.patients-table-card table,
+.procedures-table-card table {
+  margin-bottom: 0;
+}
+
+.patients-table-card thead th,
+.procedures-table-card thead th,
+.financial-table-card thead th {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--card-border);
+  background: var(--content-bg);
+}
+
+/* =============================================
    OVERRIDE BOOTSTRAP COM O TEMA
    ============================================= */
 
@@ -319,8 +617,33 @@ body {
 
 .badge.bg-primary { background-color: var(--brand) !important; }
 
+.form-check-input:checked {
+  background-color: var(--brand) !important;
+  border-color: var(--brand) !important;
+}
+
+.form-check-input:focus {
+  border-color: var(--brand) !important;
+  box-shadow: 0 0 0 0.2rem rgba(214, 147, 176, 0.25) !important;
+}
+
 .nav-link.active {
   color: var(--brand) !important;
+}
+
+/* Abas estilo "pills" (ex: Usuários — Profissionais/Administradores) */
+.users-role-tabs .nav-link {
+  color: var(--text-secondary);
+  background-color: transparent;
+}
+
+.users-role-tabs .nav-link:hover {
+  background-color: var(--brand-light);
+}
+
+.users-role-tabs .nav-link.active {
+  background-color: var(--brand) !important;
+  color: #ffffff !important;
 }
 
 a {

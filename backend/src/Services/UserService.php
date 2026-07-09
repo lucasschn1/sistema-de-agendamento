@@ -406,6 +406,16 @@ class UserService {
     }
 
     /**
+     * Lista todos os administradores
+     *
+     * @param bool $activeOnly
+     * @return User[]
+     */
+    public function getAllAdmins(bool $activeOnly = true): array {
+        return $this->userRepo->getAllAdmins($activeOnly);
+    }
+
+    /**
      * Busca profissionais por tipo
      * 
      * @param string $professionalType Ex: 'Psicólogo', 'Psicopedagogo'

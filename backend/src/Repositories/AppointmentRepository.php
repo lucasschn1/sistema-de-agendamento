@@ -398,7 +398,7 @@ class AppointmentRepository {
             return $stmt->execute([
                 'id' => $appointment->getId(),
                 'patient_id' => $appointment->getPatientId(),
-                'professsional_id' => $appointment->getProfessionalId(),
+                'professional_id' => $appointment->getProfessionalId(),
                 'service_id' => $appointment->getServiceId(),
                 'start_time' => $appointment->getStartTime()->format('Y-m-d H:i:s'),
                 'duration_minutes' => $appointment->getDurationMinutes(),

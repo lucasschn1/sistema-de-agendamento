@@ -339,6 +339,7 @@ class Appointment {
             'status'              => $this->status,
             'cancellation_reason' => $this->cancellationReason,
             'recurrence_type'     => $this->recurrenceType,
+            'recurrence_group_id' => $this->recurrenceGroupId,
             'is_recurring'        => $this->isRecurring(),
             'notes'               => $this->notes,
         ];

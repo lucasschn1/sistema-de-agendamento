@@ -1,9 +1,16 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import MainLayout from '../components/layout/MainLayout'
 
 // Pages
-import Login     from '../pages/Login/Login'
-import Dashboard from '../pages/Dashboard/Dashboard'
+import Login          from '../pages/Login/Login'
+import ForgotPassword from '../pages/Login/ForgotPassword'
+import Dashboard      from '../pages/Dashboard/Dashboard'
+import Appointments   from '../pages/Appointments/Appointments'
+import Patients       from '../pages/Patients/Patients'
+import Procedures     from '../pages/Procedures/Procedures'
+import Financial      from '../pages/Financial/Financial'
+import Users          from '../pages/Users/Users'
 
 // =========================================================
 // ROTA PROTEGIDA
@@ -56,16 +63,30 @@ export default function AppRoutes() {
           </PublicRoute>
         }
       />
-
-      {/* Rotas protegidas */}
       <Route
-        path="/dashboard"
+        path="/forgot-password"
         element={
-          <PrivateRoute>
-            <Dashboard />
-          </PrivateRoute>
+          <PublicRoute>
+            <ForgotPassword />
+          </PublicRoute>
         }
       />
+
+      {/* Rotas protegidas — todas usam o MainLayout (sidebar + topbar) */}
+      <Route
+        element={
+          <PrivateRoute>
+            <MainLayout />
+          </PrivateRoute>
+        }
+      >
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/appointments" element={<Appointments />} />
+        <Route path="/patients" element={<Patients />} />
+        <Route path="/procedures" element={<Procedures />} />
+        <Route path="/financial" element={<Financial />} />
+        <Route path="/users" element={<Users />} />
+      </Route>
 
       {/* Rota 404 — redireciona para dashboard */}
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

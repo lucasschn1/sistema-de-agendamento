@@ -10,6 +10,7 @@ use App\Exceptions\user\DuplicateUserException;
 use App\Exceptions\user\InactiveUserException;
 use App\Exceptions\user\UserHasFutureAppointmentsException;
 use App\Exceptions\user\UnauthorizedException;
+use App\Exceptions\user\WeakPasswordException;
 
 /**
  * UserController - Gerencia usuários da clínica
@@ -145,6 +146,7 @@ Class UserController {
             $users = match($role) {
                 'patient' => $this->userService->getAllPatients($activeOnly),
                 'professional' => $this->userService->getAllProfessionals($activeOnly),
+                'admin' => $this->userService->getAllAdmins($activeOnly),
 
                 default => array_merge(
                     $this->userService->getAllPatients($activeOnly),
@@ -300,6 +302,35 @@ Class UserController {
         }
     }
 
+    /**
+     * POST /api/users/admin
+     * Cria um novo administrador
+     *
+     * Body esperado:
+     * {
+     *   "name": "Maria Admin",
+     *   "email": "maria@clinica.com",
+     *   "password": "senha123"
+     * }
+     */
+    public function storeAdmin(Request $request): Response {
+        try {
+            $id = $this->userService->createAdmin($request->body());
+
+            $user = $this->userService->getUserById($id);
+            return Response::created($user->toPublicArray());
+
+        } catch (ValidationException $e) {
+            return Response::validationError($e->getErrors());
+
+        } catch (DuplicateUserException $e) {
+            return Response::conflict($e->getMessage());
+
+        } catch (\Throwable $e) {
+            return Response::serverError();
+        }
+    }
+
     // =========================================================
     // ADMIN — ATUALIZAÇÃO E DELEÇÃO
     // =========================================================
@@ -355,6 +386,42 @@ Class UserController {
 
         } catch (UserHasFutureAppointmentsException $e) {
             return Response::error($e->getMessage(), 400, 'UserHasFutureAppointmentsException');
+
+        } catch (\Throwable $e) {
+            return Response::serverError();
+        }
+    }
+
+    /**
+     * PATCH /api/users/{id}/reset-password
+     * Redefine a senha de qualquer usuário sem exigir a senha atual (uso administrativo)
+     *
+     * Body esperado:
+     * {
+     *   "new_password": "novaSenha123"
+     * }
+     */
+    public function resetPassword(Request $request): Response {
+        try {
+            $id = (int) $request->param('id');
+            $newPassword = $request->input('new_password', '');
+
+            if (empty($newPassword)) {
+                return Response::validationError(['new_password' => 'Nova senha é obrigatória']);
+            }
+
+            $this->userService->resetPassword($id, $newPassword);
+
+            return Response::json(null, 200, 'Senha redefinida com sucesso');
+
+        } catch (UserNotFoundException $e) {
+            return Response::notFound($e->getMessage());
+
+        } catch (ValidationException $e) {
+            return Response::validationError($e->getErrors());
+
+        } catch (WeakPasswordException $e) {
+            return Response::error($e->getMessage(), 400, 'WeakPasswordException');
 
         } catch (\Throwable $e) {
             return Response::serverError();
