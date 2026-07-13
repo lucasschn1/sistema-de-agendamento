@@ -14,6 +14,11 @@ export function getAppointment(id) {
   return api.get(`/api/appointments/${id}`).then((res) => res.data.data)
 }
 
+// GET /api/appointments/{id}/history
+export function getAppointmentHistory(id) {
+  return api.get(`/api/appointments/${id}/history`).then((res) => res.data.data)
+}
+
 // GET /api/availability?professional_id=&date=&duration=&exclude_id=
 export function checkAvailability(params) {
   return api.get('/api/availability', { params }).then((res) => res.data.data)

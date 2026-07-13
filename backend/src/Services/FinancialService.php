@@ -265,7 +265,20 @@ class FinancialService {
     {
         $startDate = new DateTime('first day of this month 00:00:00');
         $endDate   = new DateTime('last day of this month 23:59:59');
- 
+
+        return $this->getSummaryByPeriod($startDate, $endDate);
+    }
+
+    /**
+     * Resumo financeiro do dia atual
+     *
+     * @return array
+     */
+    public function getTodaySummary(): array
+    {
+        $startDate = new DateTime('today 00:00:00');
+        $endDate   = new DateTime('today 23:59:59');
+
         return $this->getSummaryByPeriod($startDate, $endDate);
     }
 
@@ -346,10 +359,71 @@ class FinancialService {
  
         $summary['received'] = round($summary['received'], 2);
         $summary['pending']  = round($summary['pending'], 2);
- 
+
         return $summary;
     }
- 
+
+    /**
+     * Resumo financeiro agrupado por profissional, em um período
+     * Mostra quanto cada profissional recebeu por sessão no período
+     *
+     * @param DateTime $startDate
+     * @param DateTime $endDate
+     * @throws ValidationException
+     * @return array Lista de [
+     *   'professional_id'   => int,
+     *   'professional_name' => string,
+     *   'total_sessions'    => int,
+     *   'received'          => float,
+     *   'pending'           => float,
+     * ], ordenada pelo maior valor recebido
+     */
+    public function getSummaryByAllProfessionals(DateTime $startDate, DateTime $endDate): array {
+        $this->validateDateRange($startDate, $endDate);
+
+        $appointments = $this->appointmentRepository->findByDateRange($startDate, $endDate, true);
+
+        $byProfessional = [];
+
+        foreach ($appointments as $appointment) {
+            if ($appointment->getStatus() !== 'completed') {
+                continue;
+            }
+
+            $professional = $appointment->getProfessional();
+            $id = $appointment->getProfessionalId();
+
+            if (!isset($byProfessional[$id])) {
+                $byProfessional[$id] = [
+                    'professional_id'   => $id,
+                    'professional_name' => $professional?->getName() ?? 'Desconhecido',
+                    'total_sessions'    => 0,
+                    'received'          => 0.0,
+                    'pending'           => 0.0,
+                ];
+            }
+
+            $byProfessional[$id]['total_sessions']++;
+
+            if ($appointment->isPaid()) {
+                $byProfessional[$id]['received'] += $appointment->getPrice();
+            } else {
+                $byProfessional[$id]['pending'] += $appointment->getPrice();
+            }
+        }
+
+        $result = array_values($byProfessional);
+
+        foreach ($result as &$row) {
+            $row['received'] = round($row['received'], 2);
+            $row['pending']  = round($row['pending'], 2);
+        }
+
+        usort($result, fn($a, $b) => $b['received'] <=> $a['received']);
+
+        return $result;
+    }
+
     /**
      * Agendamentos pagos em um período (extrato de caixa)
      * 
@@ -382,8 +456,40 @@ class FinancialService {
             }
         ));
     }
- 
- 
+
+    /**
+     * Últimos pagamentos registrados, paginado (independente de período)
+     * Usa paginação real no banco (LIMIT/OFFSET), não carrega tudo em memória
+     *
+     * @param int $page     Página atual (1-indexed)
+     * @param int $perPage  Itens por página
+     * @return array [
+     *   'data'        => Appointment[],
+     *   'page'        => int,
+     *   'per_page'    => int,
+     *   'total'       => int,
+     *   'total_pages' => int,
+     * ]
+     */
+    public function getPaidPaginated(int $page = 1, int $perPage = 10): array {
+        $page    = max(1, $page);
+        $perPage = max(1, min($perPage, 100)); // proteção contra per_page absurdo
+
+        $offset = ($page - 1) * $perPage;
+
+        $data  = $this->appointmentRepository->findPaidPaginated($perPage, $offset, true);
+        $total = $this->appointmentRepository->countPaid();
+
+        return [
+            'data'        => $data,
+            'page'        => $page,
+            'per_page'    => $perPage,
+            'total'       => $total,
+            'total_pages' => (int) ceil($total / $perPage),
+        ];
+    }
+
+
     // =========================================================
     // VALIDAÇÕES PRIVADAS
     // =========================================================

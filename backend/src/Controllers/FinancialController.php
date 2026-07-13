@@ -21,7 +21,10 @@ use App\Exceptions\financial\InvalidPaymentStatusException;
  *   GET   /api/financial/summary              → summary()
  *   GET   /api/financial/summary/month        → summaryByMonth()
  *   GET   /api/financial/summary/current      → currentMonth()
+ *   GET   /api/financial/summary/today        → todaySummary()
+ *   GET   /api/financial/summary/professionals → summaryByProfessionals()
  *   GET   /api/financial/paid                 → paid()
+ *   GET   /api/financial/paid/recent          → recentPaid()
  *   GET   /api/financial/methods              → paymentMethods()
  */
 class FinancialController
@@ -224,6 +227,57 @@ class FinancialController
     }
 
     /**
+     * GET /api/financial/summary/today
+     * Resumo financeiro do dia atual
+     */
+    public function todaySummary(Request $request): Response
+    {
+        try {
+            $summary = $this->financialService->getTodaySummary();
+            return Response::json($summary);
+
+        } catch (\Throwable $e) {
+            return Response::serverError();
+        }
+    }
+
+    /**
+     * GET /api/financial/summary/professionals
+     * Resumo financeiro agrupado por profissional em um período
+     *
+     * Query params (obrigatórios):
+     *   ?start=2026-01-01
+     *   ?end=2026-06-30
+     */
+    public function summaryByProfessionals(Request $request): Response
+    {
+        try {
+            $start = $request->query('start');
+            $end   = $request->query('end');
+
+            if (!$start || !$end) {
+                return Response::validationError([
+                    'start' => 'Data de início é obrigatória',
+                    'end'   => 'Data de fim é obrigatória',
+                ]);
+            }
+
+            $summary = $this->financialService->getSummaryByAllProfessionals(
+                new \DateTime($start),
+                new \DateTime($end)
+            );
+
+            return Response::json($summary);
+
+        } catch (ValidationException $e) {
+            return Response::validationError($e->getErrors());
+
+        } catch (\Throwable $e) {
+            return Response::serverError();
+        }
+    }
+
+    /**
      * GET /api/financial/paid
      * Extrato de agendamentos pagos em um período
      * 
@@ -260,6 +314,35 @@ class FinancialController
 
         } catch (InvalidPaymentMethodException $e) {
             return Response::error($e->getMessage(), 400, 'InvalidPaymentMethodException');
+
+        } catch (\Throwable $e) {
+            return Response::serverError();
+        }
+    }
+
+    /**
+     * GET /api/financial/paid/recent
+     * Últimos pagamentos registrados, paginado (independente de período)
+     *
+     * Query params:
+     *   ?page=1       (opcional — padrão 1)
+     *   ?per_page=10  (opcional — padrão 10)
+     */
+    public function recentPaid(Request $request): Response
+    {
+        try {
+            $page    = (int) $request->query('page', 1);
+            $perPage = (int) $request->query('per_page', 10);
+
+            $result = $this->financialService->getPaidPaginated($page, $perPage);
+
+            return Response::json([
+                'data'        => array_map(fn($apt) => $apt->toPublicArray(), $result['data']),
+                'page'        => $result['page'],
+                'per_page'    => $result['per_page'],
+                'total'       => $result['total'],
+                'total_pages' => $result['total_pages'],
+            ]);
 
         } catch (\Throwable $e) {
             return Response::serverError();

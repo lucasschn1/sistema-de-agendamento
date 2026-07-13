@@ -125,6 +125,25 @@ Class AppointmentController {
     }
 
     /**
+     * GET /api/appointments/{id}/history
+     * Retorna o histórico de mudanças de status de um agendamento (auditoria)
+     */
+    public function history(Request $request): Response {
+        try {
+            $id = (int) $request->param('id');
+            $history = $this->appointmentService->getAppointmentHistory($id);
+
+            return Response::json($history);
+
+        } catch (AppointmentNotFoundException $e) {
+            return Response::notFound($e->getMessage());
+
+        } catch (\Throwable $e) {
+            return Response::serverError();
+        }
+    }
+
+    /**
      * GET /api/availability
      * Verifica disponibilidade de horário para o calendário
      * 
@@ -307,7 +326,7 @@ Class AppointmentController {
     public function confirm(Request $request): Response {
         try {
             $id = (int) $request->param('id');
-            $this->appointmentService->confirmAppointment($id);
+            $this->appointmentService->confirmAppointment($id, $request->user()->getId());
 
             $appointment = $this->appointmentService->getAppointmentById($id);
             $this->emailService->sendAppointmentConfirmed($appointment);
@@ -332,7 +351,7 @@ Class AppointmentController {
     {
         try {
             $id = (int) $request->param('id');
-            $this->appointmentService->completeAppointment($id);
+            $this->appointmentService->completeAppointment($id, $request->user()->getId());
  
             $appointment = $this->appointmentService->getAppointmentById($id);
             return Response::json($appointment->toPublicArray(), 200, 'Sessão marcada como realizada');
@@ -367,7 +386,7 @@ Class AppointmentController {
                 return Response::validationError(['reason' => 'Motivo do cancelamento é obrigatório']);
             }
  
-            $this->appointmentService->cancelAppointment($id, $reason, $isAdmin);
+            $this->appointmentService->cancelAppointment($id, $reason, $isAdmin, $request->user()->getId());
  
             $appointment = $this->appointmentService->getAppointmentById($id);
             return Response::json($appointment->toPublicArray(), 200, 'Agendamento cancelado');
@@ -399,7 +418,7 @@ Class AppointmentController {
             $id = (int) $request->param('id');
             $reason = $request->input('reason');
  
-            $this->appointmentService->markAsNoShow($id, $reason);
+            $this->appointmentService->markAsNoShow($id, $reason, $request->user()->getId());
  
             $appointment = $this->appointmentService->getAppointmentById($id);
             return Response::json($appointment->toPublicArray(), 200, 'Marcado como falta');

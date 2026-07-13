@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Button, Table, Badge, Alert, Spinner, Form, InputGroup } from 'react-bootstrap'
+import { useCallback, useEffect, useState, Fragment } from 'react'
+import { Button, Table, Alert, Spinner, Form, InputGroup } from 'react-bootstrap'
 import { listProcedures, deactivateProcedure, activateProcedure } from '../../api/procedures'
 import { parseApiError } from '../../utils/apiError'
 import { useToast } from '../../context/ToastContext'
 import { usePersistedState } from '../../hooks/usePersistedState'
+import { firstLetterOf } from '../../utils/alphabetGroup'
 import ProcedureFormModal from './ProcedureFormModal'
 import ConfirmModal from '../../components/ConfirmModal'
+import TableSkeleton from '../../components/TableSkeleton'
+import DensityToggle, { useTableDensity } from '../../components/DensityToggle'
 
 export default function Procedures() {
   const { showToast } = useToast()
@@ -17,6 +20,7 @@ export default function Procedures() {
   const [search, setSearch]             = useState('')
   const [isTyping, setIsTyping]         = useState(false)
   const [showInactive, setShowInactive] = usePersistedState('procedures:showInactive', false)
+  const [density, setDensity] = useTableDensity()
 
   const [showModal, setShowModal]           = useState(false)
   const [editingProcedure, setEditingProcedure] = useState(null)
@@ -109,6 +113,8 @@ export default function Procedures() {
           onChange={(e) => setShowInactive(e.target.checked)}
         />
 
+        <DensityToggle density={density} onChange={setDensity} />
+
         <Button variant="primary" onClick={openCreate}>
           + Novo procedimento
         </Button>
@@ -120,11 +126,21 @@ export default function Procedures() {
         </Alert>
       )}
 
-      <div className="procedures-table-card">
+      <div className={`procedures-table-card${density === 'compact' ? ' table-compact' : ''}`}>
         {loading ? (
-          <div className="text-center py-4">
-            <Spinner animation="border" size="sm" />
-          </div>
+          <Table hover responsive className="mb-0">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Categoria</th>
+                <th>Preço</th>
+                <th>Duração</th>
+                <th>Status</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <TableSkeleton columns={6} />
+          </Table>
         ) : procedures.length === 0 ? (
           <div className="text-center py-4">
             <p className="text-muted mb-3">Nenhum procedimento encontrado.</p>
@@ -145,33 +161,55 @@ export default function Procedures() {
               </tr>
             </thead>
             <tbody>
-              {procedures.map((p) => (
-                <tr key={p.id}>
-                  <td>{p.name}</td>
-                  <td>{p.category}</td>
-                  <td>{p.formatted_price}</td>
-                  <td>{p.formatted_duration}</td>
-                  <td>
-                    <Badge bg={p.active ? 'success' : 'secondary'}>
-                      {p.active ? 'Ativo' : 'Inativo'}
-                    </Badge>
-                  </td>
-                  <td>
-                    <Button size="sm" variant="outline-primary" className="me-2" onClick={() => openEdit(p)}>
-                      Editar
-                    </Button>
-                    {p.active ? (
-                      <Button size="sm" variant="outline-danger" onClick={() => setDeactivatingProcedure(p)}>
-                        Desativar
-                      </Button>
-                    ) : (
-                      <Button size="sm" variant="outline-success" onClick={() => handleActivate(p)}>
-                        Ativar
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {(() => {
+                let lastLetter = null
+                return procedures.map((p) => {
+                  const letter = firstLetterOf(p.name)
+                  const isNewLetter = letter !== lastLetter
+                  lastLetter = letter
+
+                  return (
+                    <Fragment key={p.id}>
+                      {isNewLetter && (
+                        <tr className="alphabet-divider">
+                          <td colSpan={6}>{letter}</td>
+                        </tr>
+                      )}
+                      <tr>
+                        <td>
+                          <span className="table-row-name">{p.name}</span>
+                        </td>
+                        <td>
+                          <span className="table-category-tag">{p.category}</span>
+                        </td>
+                        <td className="table-row-name">{p.formatted_price}</td>
+                        <td className="table-row-subtext">{p.formatted_duration}</td>
+                        <td>
+                          <span className={p.active ? 'status-pill-active' : 'status-pill-inactive'}>
+                            {p.active ? 'Ativo' : 'Inativo'}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="table-actions">
+                            <Button size="sm" variant="outline-primary" onClick={() => openEdit(p)}>
+                              Editar
+                            </Button>
+                            {p.active ? (
+                              <Button size="sm" variant="outline-danger" onClick={() => setDeactivatingProcedure(p)}>
+                                Desativar
+                              </Button>
+                            ) : (
+                              <Button size="sm" variant="outline-success" onClick={() => handleActivate(p)}>
+                                Ativar
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    </Fragment>
+                  )
+                })
+              })()}
             </tbody>
           </Table>
         )}

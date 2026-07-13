@@ -104,7 +104,7 @@ class ServiceRepository {
         try {
             $sql = "SELECT * FROM services
             WHERE deleted_at IS NULL AND
-            active = 1 ORDER BY category, name";
+            active = 1 ORDER BY name";
 
             $stmt = $this->pdo->query($sql);
             $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -128,7 +128,7 @@ class ServiceRepository {
                 $sql .= " WHERE deleted_at IS NULL";
             }
 
-            $sql .= " ORDER BY category, name";
+            $sql .= " ORDER BY name";
 
             $stmt = $this->pdo->query($sql);
             $results = $stmt->fetchAll(PDO::FETCH_ASSOC);

@@ -202,6 +202,31 @@ CREATE TABLE appointments (
 
 
 -- =============================================
+-- TABELA: appointment_history (Auditoria de status)
+-- Registra quem mudou o status de um agendamento e quando
+-- =============================================
+CREATE TABLE appointment_history (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+
+    appointment_id INT NOT NULL,
+    action VARCHAR(30) NOT NULL COMMENT 'created, confirmed, completed, cancelled, no_show, rescheduled',
+    from_status VARCHAR(20) NULL,
+    to_status VARCHAR(20) NULL,
+    changed_by_user_id INT NULL COMMENT 'NULL se o usuário foi removido depois',
+    reason TEXT NULL,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE CASCADE,
+    FOREIGN KEY (changed_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
+
+    INDEX idx_appointment_id (appointment_id),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  COMMENT='Histórico de mudanças de status de um agendamento (auditoria)';
+
+
+-- =============================================
 -- TRIGGERS
 -- =============================================
 

@@ -252,7 +252,7 @@ class AppointmentService {
      * @throws AppointmentNotFoundException
      * @return bool
      */
-    public function confirmAppointment(int $appointmentId): bool
+    public function confirmAppointment(int $appointmentId, ?int $actingUserId = null): bool
     {
         $appointment = $this->findOrFail($appointmentId);
 
@@ -262,7 +262,12 @@ class AppointmentService {
             );
         }
 
-        return $this->appointmentRepository->confirm($appointmentId);
+        $result = $this->appointmentRepository->confirm($appointmentId);
+        $this->appointmentRepository->logHistory(
+            $appointmentId, 'confirmed', $appointment->getStatus(), 'confirmed', $actingUserId
+        );
+
+        return $result;
     }
 
     /**
@@ -272,7 +277,7 @@ class AppointmentService {
      * @throws AppointmentNotFoundException
      * @return bool
      */
-    public function completeAppointment(int $appointmentId): bool
+    public function completeAppointment(int $appointmentId, ?int $actingUserId = null): bool
     {
         $appointment = $this->findOrFail($appointmentId);
 
@@ -282,7 +287,12 @@ class AppointmentService {
             );
         }
 
-        return $this->appointmentRepository->complete($appointmentId);
+        $result = $this->appointmentRepository->complete($appointmentId);
+        $this->appointmentRepository->logHistory(
+            $appointmentId, 'completed', $appointment->getStatus(), 'completed', $actingUserId
+        );
+
+        return $result;
     }
 
     /**
@@ -296,7 +306,7 @@ class AppointmentService {
      * @throws DomainException Se status não permite cancelamento
      * @return bool
      */
-    public function cancelAppointment(int $appointmentId, string $reason, bool $isAdmin = false): bool
+    public function cancelAppointment(int $appointmentId, string $reason, bool $isAdmin = false, ?int $actingUserId = null): bool
     {
         $appointment = $this->findOrFail($appointmentId);
 
@@ -311,7 +321,12 @@ class AppointmentService {
             );
         }
 
-        return $this->appointmentRepository->cancel($appointmentId, $reason);
+        $result = $this->appointmentRepository->cancel($appointmentId, $reason);
+        $this->appointmentRepository->logHistory(
+            $appointmentId, 'cancelled', $appointment->getStatus(), 'cancelled', $actingUserId, $reason
+        );
+
+        return $result;
     }
 
     /**
@@ -361,7 +376,7 @@ class AppointmentService {
      * @throws DomainException Se status não permite no-show
      * @return bool
      */
-    public function markAsNoShow(int $appointmentId, ?string $reason = null): bool
+    public function markAsNoShow(int $appointmentId, ?string $reason = null, ?int $actingUserId = null): bool
     {
         $appointment = $this->findOrFail($appointmentId);
 
@@ -376,7 +391,22 @@ class AppointmentService {
             );
         }
 
-        return $this->appointmentRepository->markAsNoShow($appointmentId, $reason);
+        $result = $this->appointmentRepository->markAsNoShow($appointmentId, $reason);
+        $this->appointmentRepository->logHistory(
+            $appointmentId, 'no_show', $appointment->getStatus(), 'no_show', $actingUserId, $reason
+        );
+
+        return $result;
+    }
+
+    /**
+     * Busca o histórico de mudanças de status de um agendamento
+     *
+     * @return array
+     */
+    public function getAppointmentHistory(int $appointmentId): array {
+        $this->findOrFail($appointmentId);
+        return $this->appointmentRepository->getHistory($appointmentId);
     }
 
 

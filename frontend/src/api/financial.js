@@ -14,6 +14,21 @@ export function getSummaryByMonth(year, month) {
   return api.get('/api/financial/summary/month', { params: { year, month } }).then((res) => res.data.data)
 }
 
+// GET /api/financial/summary/today
+export function getTodaySummary() {
+  return api.get('/api/financial/summary/today').then((res) => res.data.data)
+}
+
+// GET /api/financial/summary/professionals?start=&end=
+export function getSummaryByProfessionals(start, end) {
+  return api.get('/api/financial/summary/professionals', { params: { start, end } }).then((res) => res.data.data)
+}
+
+// GET /api/financial/paid/recent?page=&per_page=
+export function getRecentPayments(page = 1, perPage = 10) {
+  return api.get('/api/financial/paid/recent', { params: { page, per_page: perPage } }).then((res) => res.data.data)
+}
+
 // GET /api/financial/pending
 export function getPendingPayments() {
   return api.get('/api/financial/pending').then((res) => res.data.data)

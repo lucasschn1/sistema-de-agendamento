@@ -182,9 +182,35 @@ Class UserController {
     }
 
     /**
+     * GET /api/users/check-email
+     * Verifica em tempo real se um e-mail já está cadastrado — usado pelos
+     * formulários de criar/editar paciente e usuário antes do submit
+     *
+     * Query params:
+     *   ?email=fulano@email.com (obrigatório)
+     *   ?exclude_id=5            (opcional — ignora esse usuário, útil ao editar)
+     */
+    public function checkEmail(Request $request): Response {
+        try {
+            $email = $request->query('email', '');
+            $excludeId = $request->query('exclude_id');
+
+            if (empty($email)) {
+                return Response::validationError(['email' => 'E-mail é obrigatório']);
+            }
+
+            $exists = $this->userService->emailExists($email, $excludeId !== null ? (int) $excludeId : null);
+            return Response::json(['exists' => $exists]);
+
+        } catch (\Throwable $e) {
+            return Response::serverError();
+        }
+    }
+
+    /**
      * GET /api/users/search
      * Busca usuários por nome (busca parcial)
-     * 
+     *
      * Query params:
      *   ?name=joão
      *   ?type=Psicólogo (filtra profissionais por tipo)

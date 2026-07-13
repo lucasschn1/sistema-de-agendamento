@@ -260,6 +260,49 @@ class AppointmentRepository {
     }
 
     /**
+     * Busca agendamentos pagos, paginado e ordenado do mais recente pro mais antigo
+     * Usa o índice idx_payment (paid, payment_date) — não carrega tudo em memória
+     *
+     * @return Appointment[]
+     */
+    public function findPaidPaginated(int $limit = 10, int $offset = 0, bool $loadRelations = true): array {
+        try {
+            $sql = "SELECT * FROM appointments
+                    WHERE paid = 1
+                    AND deleted_at IS NULL
+                    ORDER BY payment_date DESC, start_time DESC
+                    LIMIT :limit OFFSET :offset";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+            $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+            $stmt->execute();
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            return $this->hydrateAppointments($results, $loadRelations);
+
+        } catch (PDOException $e) {
+            error_log("Erro ao buscar pagamentos paginados: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Conta o total de agendamentos pagos (para paginação)
+     */
+    public function countPaid(): int {
+        try {
+            $sql = "SELECT COUNT(*) FROM appointments WHERE paid = 1 AND deleted_at IS NULL";
+            $stmt = $this->pdo->query($sql);
+            return (int) $stmt->fetchColumn();
+
+        } catch (PDOException $e) {
+            error_log("Erro ao contar pagamentos: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
      * =======================================================================
      * MÉTODOS DE CRIAÇÃO (CREATE)
      * =======================================================================
@@ -733,6 +776,69 @@ class AppointmentRepository {
         }
     }
     
+
+    /**
+     * =======================================================================
+     * HISTÓRICO (AUDITORIA)
+     * =======================================================================
+     */
+
+    /**
+     * Registra uma entrada no histórico de um agendamento
+     */
+    public function logHistory(
+        int $appointmentId,
+        string $action,
+        ?string $fromStatus,
+        ?string $toStatus,
+        ?int $changedByUserId,
+        ?string $reason = null
+    ): void {
+        try {
+            $sql = "INSERT INTO appointment_history
+                    (appointment_id, action, from_status, to_status, changed_by_user_id, reason)
+                    VALUES (:appointment_id, :action, :from_status, :to_status, :changed_by_user_id, :reason)";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([
+                'appointment_id'      => $appointmentId,
+                'action'              => $action,
+                'from_status'         => $fromStatus,
+                'to_status'           => $toStatus,
+                'changed_by_user_id'  => $changedByUserId,
+                'reason'              => $reason,
+            ]);
+
+        } catch (PDOException $e) {
+            // Falha ao logar não deve quebrar a ação principal — só registra o erro
+            error_log("Erro ao registrar histórico do agendamento #{$appointmentId}: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Busca o histórico de um agendamento, mais recente primeiro,
+     * já com o nome de quem fez a alteração
+     *
+     * @return array
+     */
+    public function getHistory(int $appointmentId): array {
+        try {
+            $sql = "SELECT h.*, u.name AS changed_by_name
+                    FROM appointment_history h
+                    LEFT JOIN users u ON h.changed_by_user_id = u.id
+                    WHERE h.appointment_id = :appointment_id
+                    ORDER BY h.created_at DESC";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute(['appointment_id' => $appointmentId]);
+
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        } catch (PDOException $e) {
+            error_log("Erro ao buscar histórico do agendamento #{$appointmentId}: " . $e->getMessage());
+            throw $e;
+        }
+    }
 
     /**
      * =======================================================================

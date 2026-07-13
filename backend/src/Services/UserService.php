@@ -572,8 +572,23 @@ class UserService {
     }
 
     /**
+     * Verifica se um e-mail já está em uso — para validação em tempo real no frontend,
+     * antes do usuário tentar submeter o formulário
+     *
+     * @param string $email
+     * @param int|null $excludeUserId ignora esse ID (útil ao editar o próprio e-mail)
+     * @return bool
+     */
+    public function emailExists(string $email, ?int $excludeUserId = null): bool {
+        $existing = $this->userRepo->findByEmail($email, true);
+        if (!$existing) return false;
+        if ($excludeUserId !== null && $existing->getId() === $excludeUserId) return false;
+        return true;
+    }
+
+    /**
      * Valida força da senha
-     * 
+     *
      * @param string $password
      * @throws WeakPasswordException
      * @return void

@@ -56,6 +56,7 @@ $router->group('/api', [AuthMiddleware::class], function ($router) {
 
     // Agendamento único
     $router->get('/appointments/{id}',               [AppointmentController::class, 'show']);    // GET  /api/appointments/{id}
+    $router->get('/appointments/{id}/history',       [AppointmentController::class, 'history']);  // GET  /api/appointments/{id}/history
     $router->post('/appointments',                   [AppointmentController::class, 'store']);   // POST /api/appointments
     $router->put('/appointments/{id}',               [AppointmentController::class, 'update']);  // PUT  /api/appointments/{id}
 
@@ -100,6 +101,7 @@ $router->group('/api', [AuthMiddleware::class], function ($router) {
         // senão o Router (que casa na ordem de registro) intercepta com id="search"/"stats"
         $router->get('/users/search',             [UserController::class, 'search']);   // GET    /api/users/search?name=joão
         $router->get('/users/stats',              [UserController::class, 'stats']);    // GET    /api/users/stats
+        $router->get('/users/check-email',        [UserController::class, 'checkEmail']); // GET    /api/users/check-email?email=&exclude_id=
         $router->get('/users/{id}',               [UserController::class, 'show']);     // GET    /api/users/{id}
         $router->post('/users/patient',           [UserController::class, 'storePatient']);      // POST   /api/users/patient
         $router->post('/users/professional',      [UserController::class, 'storeProfessional']); // POST   /api/users/professional
@@ -128,6 +130,9 @@ $router->group('/api', [AuthMiddleware::class], function ($router) {
         $router->get('/financial/summary',            [FinancialController::class, 'summary']);         // GET   /api/financial/summary?start=2026-01-01&end=2026-06-30
         $router->get('/financial/summary/month',      [FinancialController::class, 'summaryByMonth']);  // GET   /api/financial/summary/month?year=2026&month=6
         $router->get('/financial/summary/current',    [FinancialController::class, 'currentMonth']);    // GET   /api/financial/summary/current
+        $router->get('/financial/summary/today',      [FinancialController::class, 'todaySummary']);    // GET   /api/financial/summary/today
+        $router->get('/financial/summary/professionals', [FinancialController::class, 'summaryByProfessionals']); // GET /api/financial/summary/professionals?start=&end=
+        $router->get('/financial/paid/recent',        [FinancialController::class, 'recentPaid']);      // GET   /api/financial/paid/recent?page=1&per_page=10
         $router->get('/financial/paid',               [FinancialController::class, 'paid']);            // GET   /api/financial/paid?start=2026-01-01&end=2026-06-30
         $router->get('/financial/methods',            [FinancialController::class, 'paymentMethods']);  // GET   /api/financial/methods
 

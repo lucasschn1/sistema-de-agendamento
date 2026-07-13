@@ -3,6 +3,7 @@ import { Modal, Form, Button, Alert, Spinner } from 'react-bootstrap'
 import { createPatient, updateUser } from '../../api/users'
 import { parseApiError, parseApiFieldErrors } from '../../utils/apiError'
 import { maskCpf, maskPhone } from '../../utils/masks'
+import { useEmailAvailability } from '../../hooks/useEmailAvailability'
 import PasswordInput from '../../components/PasswordInput'
 
 // =============================================
@@ -22,6 +23,12 @@ export default function PatientFormModal({ show, patient, onClose, onSaved }) {
   const [error, setError]           = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
   const [saving, setSaving]         = useState(false)
+
+  const emailChanged = !isEditing || email !== patient?.email
+  const { checking: checkingEmail, exists: emailTaken } = useEmailAvailability(email, {
+    excludeId: patient?.id,
+    enabled: show && emailChanged,
+  })
 
   useEffect(() => {
     if (!show) return
@@ -91,10 +98,13 @@ export default function PatientFormModal({ show, patient, onClose, onSaved }) {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              isInvalid={!!fieldErrors.email}
+              isInvalid={!!fieldErrors.email || emailTaken}
               required
             />
-            <Form.Control.Feedback type="invalid">{fieldErrors.email}</Form.Control.Feedback>
+            <Form.Control.Feedback type="invalid">
+              {fieldErrors.email || (emailTaken && 'Este e-mail já está cadastrado')}
+            </Form.Control.Feedback>
+            {checkingEmail && <div className="form-text">Verificando disponibilidade...</div>}
           </Form.Group>
 
           {!isEditing && (
@@ -148,7 +158,7 @@ export default function PatientFormModal({ show, patient, onClose, onSaved }) {
           <Button variant="outline-secondary" onClick={onClose} disabled={saving}>
             Cancelar
           </Button>
-          <Button variant="primary" type="submit" disabled={saving}>
+          <Button variant="primary" type="submit" disabled={saving || emailTaken}>
             {saving ? <Spinner as="span" animation="border" size="sm" /> : 'Salvar'}
           </Button>
         </Modal.Footer>

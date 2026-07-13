@@ -1,12 +1,15 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Button, Table, Badge, Alert, Spinner, Form, Nav } from 'react-bootstrap'
+import { useCallback, useEffect, useState, Fragment } from 'react'
+import { Button, Table, Alert, Spinner, Form, Nav } from 'react-bootstrap'
 import { listUsers, deactivateUser, restoreUser } from '../../api/users'
 import { parseApiError } from '../../utils/apiError'
 import { useToast } from '../../context/ToastContext'
 import { usePersistedState } from '../../hooks/usePersistedState'
+import { firstLetterOf } from '../../utils/alphabetGroup'
 import UserFormModal from './UserFormModal'
 import ResetPasswordModal from './ResetPasswordModal'
 import ConfirmModal from '../../components/ConfirmModal'
+import TableSkeleton from '../../components/TableSkeleton'
+import DensityToggle, { useTableDensity } from '../../components/DensityToggle'
 
 export default function Users() {
   const { showToast } = useToast()
@@ -16,6 +19,7 @@ export default function Users() {
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState('')
   const [showInactive, setShowInactive] = usePersistedState('users:showInactive', false)
+  const [density, setDensity] = useTableDensity()
 
   const [showModal, setShowModal]   = useState(false)
   const [editingUser, setEditingUser] = useState(null)
@@ -100,6 +104,8 @@ export default function Users() {
           onChange={(e) => setShowInactive(e.target.checked)}
         />
 
+        <DensityToggle density={density} onChange={setDensity} />
+
         <Button variant="primary" onClick={openCreate}>
           + Novo usuário
         </Button>
@@ -111,11 +117,20 @@ export default function Users() {
         </Alert>
       )}
 
-      <div className="patients-table-card">
+      <div className={`patients-table-card${density === 'compact' ? ' table-compact' : ''}`}>
         {loading ? (
-          <div className="text-center py-4">
-            <Spinner animation="border" size="sm" />
-          </div>
+          <Table hover responsive className="mb-0">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>E-mail</th>
+                {role === 'professional' && <th>Tipo</th>}
+                <th>Status</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <TableSkeleton columns={role === 'professional' ? 5 : 4} />
+          </Table>
         ) : users.length === 0 ? (
           <div className="text-center py-4">
             <p className="text-muted mb-3">Nenhum usuário encontrado.</p>
@@ -135,35 +150,58 @@ export default function Users() {
               </tr>
             </thead>
             <tbody>
-              {users.map((u) => (
-                <tr key={u.id}>
-                  <td>{u.name}</td>
-                  <td>{u.email}</td>
-                  {role === 'professional' && <td>{u.professional_type}</td>}
-                  <td>
-                    <Badge bg={u.active ? 'success' : 'secondary'}>
-                      {u.active ? 'Ativo' : 'Inativo'}
-                    </Badge>
-                  </td>
-                  <td>
-                    <Button size="sm" variant="outline-primary" className="me-2" onClick={() => openEdit(u)}>
-                      Editar
-                    </Button>
-                    <Button size="sm" variant="outline-secondary" className="me-2" onClick={() => setResettingUser(u)}>
-                      Redefinir senha
-                    </Button>
-                    {u.active ? (
-                      <Button size="sm" variant="outline-danger" onClick={() => setDeactivatingUser(u)}>
-                        Desativar
-                      </Button>
-                    ) : (
-                      <Button size="sm" variant="outline-success" onClick={() => handleReactivate(u)}>
-                        Reativar
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {(() => {
+                let lastLetter = null
+                return users.map((u) => {
+                  const letter = firstLetterOf(u.name)
+                  const isNewLetter = letter !== lastLetter
+                  lastLetter = letter
+
+                  return (
+                    <Fragment key={u.id}>
+                      {isNewLetter && (
+                        <tr className="alphabet-divider">
+                          <td colSpan={role === 'professional' ? 5 : 4}>{letter}</td>
+                        </tr>
+                      )}
+                      <tr>
+                        <td>
+                          <div className="table-row-identity">
+                            <span className="table-row-avatar">{u.name?.charAt(0).toUpperCase()}</span>
+                            <span className="table-row-name">{u.name}</span>
+                          </div>
+                        </td>
+                        <td className="table-row-subtext">{u.email}</td>
+                        {role === 'professional' && <td>{u.professional_type}</td>}
+                        <td>
+                          <span className={u.active ? 'status-pill-active' : 'status-pill-inactive'}>
+                            {u.active ? 'Ativo' : 'Inativo'}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="table-actions">
+                            <Button size="sm" variant="outline-primary" onClick={() => openEdit(u)}>
+                              Editar
+                            </Button>
+                            <Button size="sm" variant="outline-secondary" onClick={() => setResettingUser(u)}>
+                              Redefinir senha
+                            </Button>
+                            {u.active ? (
+                              <Button size="sm" variant="outline-danger" onClick={() => setDeactivatingUser(u)}>
+                                Desativar
+                              </Button>
+                            ) : (
+                              <Button size="sm" variant="outline-success" onClick={() => handleReactivate(u)}>
+                                Reativar
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    </Fragment>
+                  )
+                })
+              })()}
             </tbody>
           </Table>
         )}

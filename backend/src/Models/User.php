@@ -139,6 +139,7 @@ Class User {
             'id'                => $this->id,
             'name'              => $this->name,
             'email'             => $this->email,
+            'birthdate'         => $this->birthdate?->format('Y-m-d'),
             'role'              => $this->role,
             'professional_type' => $this->professionalType,
             'council_id'        => $this->councilId,

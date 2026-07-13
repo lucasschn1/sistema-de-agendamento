@@ -24,6 +24,13 @@ export function searchUsers(name) {
   return api.get('/api/users/search', { params: { name } }).then((res) => res.data.data)
 }
 
+// GET /api/users/check-email?email=&exclude_id=
+export function checkEmailExists(email, excludeId) {
+  return api
+    .get('/api/users/check-email', { params: { email, exclude_id: excludeId } })
+    .then((res) => res.data.data.exists)
+}
+
 // GET /api/users/{id}
 export function getUser(id) {
   return api.get(`/api/users/${id}`).then((res) => res.data.data)
