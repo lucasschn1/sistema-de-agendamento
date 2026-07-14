@@ -49,6 +49,12 @@ const Icons = {
       <path d="M19 9v-.5M19 13v-.5M17.3 10l-.4-.25M21.1 12l-.4-.25M17.3 12l-.4.25M21.1 10l-.4.25" />
     </svg>
   ),
+  Key: () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="8" cy="15" r="4" />
+      <path d="M10.5 12.5 20 3M17 6l3 3M14 9l2 2" />
+    </svg>
+  ),
   Logout: () => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -151,6 +157,17 @@ export default function Sidebar({ isOpen, onClose }) {
             >
               <Icons.UserCog />
               Usuários
+            </NavLink>
+
+            {/* Módulo isolado da agenda principal — seção própria de propósito */}
+            <div className="sidebar-section-label" style={{ marginTop: 8 }}>Sublocação</div>
+
+            <NavLink
+              to="/rentals"
+              className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
+            >
+              <Icons.Key />
+              Sublocações
             </NavLink>
           </>
         )}

@@ -21,6 +21,10 @@ use App\Controllers\UserController;
 use App\Controllers\AppointmentController;
 use App\Controllers\ProcedureController;
 use App\Controllers\FinancialController;
+use App\Controllers\RentalRoomController;
+use App\Controllers\RentalBookingController;
+use App\Controllers\RentalRecurrenceController;
+use App\Controllers\RentalInvoiceController;
 
 use App\Middleware\AuthMiddleware;
 use App\Middleware\RoleMiddleware;
@@ -135,6 +139,30 @@ $router->group('/api', [AuthMiddleware::class], function ($router) {
         $router->get('/financial/paid/recent',        [FinancialController::class, 'recentPaid']);      // GET   /api/financial/paid/recent?page=1&per_page=10
         $router->get('/financial/paid',               [FinancialController::class, 'paid']);            // GET   /api/financial/paid?start=2026-01-01&end=2026-06-30
         $router->get('/financial/methods',            [FinancialController::class, 'paymentMethods']);  // GET   /api/financial/methods
+
+
+        // ── Sublocação de salas (módulo isolado da agenda principal) ──
+
+        $router->get('/rentals/rooms',                    [RentalRoomController::class, 'index']);      // GET    /api/rentals/rooms?active=true|false
+        $router->get('/rentals/rooms/{id}',                [RentalRoomController::class, 'show']);       // GET    /api/rentals/rooms/{id}
+        $router->post('/rentals/rooms',                    [RentalRoomController::class, 'store']);      // POST   /api/rentals/rooms
+        $router->put('/rentals/rooms/{id}',                [RentalRoomController::class, 'update']);     // PUT    /api/rentals/rooms/{id}
+        $router->patch('/rentals/rooms/{id}/activate',     [RentalRoomController::class, 'activate']);   // PATCH  /api/rentals/rooms/{id}/activate
+        $router->patch('/rentals/rooms/{id}/deactivate',   [RentalRoomController::class, 'deactivate']); // PATCH  /api/rentals/rooms/{id}/deactivate
+        $router->delete('/rentals/rooms/{id}',             [RentalRoomController::class, 'destroy']);    // DELETE /api/rentals/rooms/{id}
+
+        $router->get('/rentals/bookings',                  [RentalBookingController::class, 'index']);   // GET    /api/rentals/bookings?start=&end=
+        $router->get('/rentals/bookings/{id}',              [RentalBookingController::class, 'show']);    // GET    /api/rentals/bookings/{id}
+        $router->post('/rentals/bookings',                  [RentalBookingController::class, 'store']);   // POST   /api/rentals/bookings
+        $router->patch('/rentals/bookings/{id}/cancel',     [RentalBookingController::class, 'cancel']);  // PATCH  /api/rentals/bookings/{id}/cancel
+
+        $router->get('/rentals/recurrences',                [RentalRecurrenceController::class, 'index']);   // GET    /api/rentals/recurrences
+        $router->get('/rentals/recurrences/{id}',            [RentalRecurrenceController::class, 'show']);    // GET    /api/rentals/recurrences/{id}
+        $router->post('/rentals/recurrences',                [RentalRecurrenceController::class, 'store']);   // POST   /api/rentals/recurrences
+        $router->patch('/rentals/recurrences/{id}/release',  [RentalRecurrenceController::class, 'release']); // PATCH  /api/rentals/recurrences/{id}/release
+
+        $router->get('/rentals/invoices',                   [RentalInvoiceController::class, 'index']);      // GET    /api/rentals/invoices
+        $router->patch('/rentals/invoices/{id}/pay',         [RentalInvoiceController::class, 'pay']);        // PATCH  /api/rentals/invoices/{id}/pay
 
 
         // ── Agendamentos — ações exclusivas admin ─────────

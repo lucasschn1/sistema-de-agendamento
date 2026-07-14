@@ -709,6 +709,212 @@ DELIMITER ;
 
 
 -- =============================================
+-- MÓDULO: SUBLOCAÇÃO DE SALAS
+-- Isolado da agenda principal (appointments) — nenhuma FK cruzada.
+-- Locatário = usuário existente com role='professional' (sem tabela própria).
+-- =============================================
+
+-- TABELA: rental_rooms (salas físicas disponíveis para sublocação)
+CREATE TABLE rental_rooms (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+
+    name VARCHAR(100) NOT NULL,
+    active BOOLEAN DEFAULT TRUE,
+
+    deleted_at TIMESTAMP NULL DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    INDEX idx_active (active),
+    INDEX idx_deleted_at (deleted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  COMMENT='Salas físicas disponíveis para sublocação a profissionais';
+
+
+-- TABELA: rental_recurrences (regras de sublocação fixa — só blocos de 4h)
+CREATE TABLE rental_recurrences (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+
+    tenant_user_id INT NOT NULL COMMENT 'FK para users com role=professional',
+    rental_room_id INT NOT NULL,
+
+    period ENUM('manha', 'tarde', 'noite') NOT NULL COMMENT '08-12h, 12-16h, 16-20h — nunca avulso aqui',
+    day_of_week TINYINT NOT NULL COMMENT '0=Domingo ... 6=Sábado',
+
+    start_date DATE NOT NULL,
+    end_date DATE NULL COMMENT 'NULL = sem data de fim definida',
+    price DECIMAL(10, 2) NOT NULL COMMENT 'Valor mensal do bloco fixo',
+
+    active BOOLEAN DEFAULT TRUE COMMENT 'FALSE = liberado/encerrado pelo admin (ex: inadimplência)',
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (tenant_user_id) REFERENCES users(id) ON DELETE RESTRICT,
+    FOREIGN KEY (rental_room_id) REFERENCES rental_rooms(id) ON DELETE RESTRICT,
+
+    INDEX idx_tenant_user_id (tenant_user_id),
+    INDEX idx_rental_room_id (rental_room_id),
+    INDEX idx_active (active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  COMMENT='Regras de sublocação fixa/recorrente — exige pagamento antecipado';
+
+
+-- TABELA: rental_invoices (faturas — antecipada por período OU mensal de avulsos)
+CREATE TABLE rental_invoices (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+
+    tenant_user_id INT NOT NULL,
+    type ENUM('period_advance', 'avulso_monthly') NOT NULL,
+    reference_month DATE NOT NULL COMMENT 'Primeiro dia do mês faturado',
+
+    -- Preenchido só quando type=period_advance (uma fatura por recorrência/mês)
+    rental_recurrence_id INT NULL,
+
+    -- Coluna gerada só para permitir UNIQUE correto mesmo com rental_recurrence_id NULL
+    -- (avulso_monthly sempre tem recurrence_id NULL; sem isso o UNIQUE não pegaria duplicatas)
+    recurrence_key INT AS (COALESCE(rental_recurrence_id, 0)) STORED,
+
+    amount DECIMAL(10, 2) NOT NULL,
+    status ENUM('pending', 'paid', 'overdue') NOT NULL DEFAULT 'pending',
+    due_date DATE NOT NULL,
+    paid_date DATE NULL,
+    payment_method VARCHAR(50) NULL,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (tenant_user_id) REFERENCES users(id) ON DELETE RESTRICT,
+    FOREIGN KEY (rental_recurrence_id) REFERENCES rental_recurrences(id) ON DELETE SET NULL,
+
+    -- Garante que o fechamento de mês nunca gera fatura duplicada (idempotência do cron)
+    UNIQUE KEY uq_rental_invoice_period (tenant_user_id, type, reference_month, recurrence_key),
+
+    INDEX idx_tenant_user_id (tenant_user_id),
+    INDEX idx_status (status),
+    INDEX idx_reference_month (reference_month)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  COMMENT='Faturas de sublocação — antecipada (fixo) ou fechamento mensal (avulso)';
+
+
+-- TABELA: rental_bookings (reservas — únicas/avulsas ou geradas por recorrência)
+CREATE TABLE rental_bookings (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+
+    rental_room_id INT NOT NULL,
+    tenant_user_id INT NOT NULL,
+
+    rental_recurrence_id INT NULL,
+    is_recurring BOOLEAN NOT NULL DEFAULT FALSE,
+
+    booking_date DATE NOT NULL,
+    period ENUM('manha', 'tarde', 'noite', 'avulso') NOT NULL,
+    start_time DATETIME NOT NULL,
+    end_time DATETIME NOT NULL,
+
+    price DECIMAL(10, 2) NOT NULL,
+    rental_invoice_id INT NULL COMMENT 'Preenchido só para avulsos já faturados no fechamento do mês',
+
+    status ENUM('scheduled', 'cancelled') NOT NULL DEFAULT 'scheduled',
+    cancellation_reason TEXT NULL,
+
+    deleted_at TIMESTAMP NULL DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (rental_room_id) REFERENCES rental_rooms(id) ON DELETE RESTRICT,
+    FOREIGN KEY (tenant_user_id) REFERENCES users(id) ON DELETE RESTRICT,
+    FOREIGN KEY (rental_recurrence_id) REFERENCES rental_recurrences(id) ON DELETE SET NULL,
+    FOREIGN KEY (rental_invoice_id) REFERENCES rental_invoices(id) ON DELETE SET NULL,
+
+    INDEX idx_room_time (rental_room_id, start_time),    -- conflito de horário
+    INDEX idx_tenant_user_id (tenant_user_id),
+    INDEX idx_rental_recurrence_id (rental_recurrence_id),
+    INDEX idx_rental_invoice_id (rental_invoice_id),
+    INDEX idx_booking_date (booking_date),
+    INDEX idx_deleted_at (deleted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  COMMENT='Reservas de sublocação de sala — isoladas de appointments';
+
+
+-- =============================================
+-- TRIGGERS — SUBLOCAÇÃO
+-- =============================================
+
+DELIMITER //
+
+-- 1. Trava: reserva avulsa (20h-21h) nunca pode ser recorrente
+CREATE TRIGGER trg_rental_no_recurring_avulso_insert
+BEFORE INSERT ON rental_bookings
+FOR EACH ROW
+BEGIN
+    IF NEW.is_recurring = TRUE AND NEW.period = 'avulso' THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Reservas avulsas não podem ser recorrentes — só blocos completos (manhã/tarde/noite)';
+    END IF;
+END //
+
+CREATE TRIGGER trg_rental_no_recurring_avulso_update
+BEFORE UPDATE ON rental_bookings
+FOR EACH ROW
+BEGIN
+    IF NEW.is_recurring = TRUE AND NEW.period = 'avulso' THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Reservas avulsas não podem ser recorrentes — só blocos completos (manhã/tarde/noite)';
+    END IF;
+END //
+
+-- 2. Conflito de horário: mesma sala não pode ter duas reservas sobrepostas
+CREATE TRIGGER trg_rental_check_conflict_insert
+BEFORE INSERT ON rental_bookings
+FOR EACH ROW
+BEGIN
+    DECLARE v_conflict INT DEFAULT 0;
+
+    SELECT COUNT(*) INTO v_conflict
+    FROM rental_bookings
+    WHERE rental_room_id = NEW.rental_room_id
+      AND status = 'scheduled'
+      AND deleted_at IS NULL
+      AND start_time < NEW.end_time
+      AND end_time > NEW.start_time;
+
+    IF v_conflict > 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Conflito de horário: sala já reservada neste período';
+    END IF;
+END //
+
+CREATE TRIGGER trg_rental_check_conflict_update
+BEFORE UPDATE ON rental_bookings
+FOR EACH ROW
+BEGIN
+    DECLARE v_conflict INT DEFAULT 0;
+
+    IF NEW.start_time != OLD.start_time
+    OR NEW.end_time != OLD.end_time
+    OR NEW.rental_room_id != OLD.rental_room_id THEN
+
+        SELECT COUNT(*) INTO v_conflict
+        FROM rental_bookings
+        WHERE rental_room_id = NEW.rental_room_id
+          AND id != NEW.id
+          AND status = 'scheduled'
+          AND deleted_at IS NULL
+          AND start_time < NEW.end_time
+          AND end_time > NEW.start_time;
+
+        IF v_conflict > 0 THEN
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Conflito de horário: sala já reservada neste período';
+        END IF;
+    END IF;
+END //
+
+DELIMITER ;
+
+
+-- =============================================
 -- DADOS DE EXEMPLO
 -- =============================================
 

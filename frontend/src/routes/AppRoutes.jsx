@@ -11,6 +11,7 @@ import Patients       from '../pages/Patients/Patients'
 import Procedures     from '../pages/Procedures/Procedures'
 import Financial      from '../pages/Financial/Financial'
 import Users          from '../pages/Users/Users'
+import Rentals        from '../pages/Rentals/Rentals'
 
 // =========================================================
 // ROTA PROTEGIDA
@@ -86,6 +87,7 @@ export default function AppRoutes() {
         <Route path="/procedures" element={<Procedures />} />
         <Route path="/financial" element={<Financial />} />
         <Route path="/users" element={<Users />} />
+        <Route path="/rentals" element={<Rentals />} />
       </Route>
 
       {/* Rota 404 — redireciona para dashboard */}
