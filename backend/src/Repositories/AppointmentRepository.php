@@ -324,11 +324,12 @@ class AppointmentRepository {
         int $dayOfWeek,
         string $startHour, //HH:MM:SS
         DateTime $startDate,
-        ?DateTime $endDate = null,
-        ?string $notes = null
+        ?DateTime $endDate,
+        ?string $notes,
+        float $price
     ): array {
         try {
-            $stmt = $this->pdo->prepare("CALL sp_create_recurrence(?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt = $this->pdo->prepare("CALL sp_create_recurrence(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
             $stmt->execute([
                 $patientId,
@@ -339,7 +340,8 @@ class AppointmentRepository {
                 $startHour,
                 $startDate->format('Y-m-d'),
                 $endDate?->format('Y-m-d'),
-                $notes
+                $notes,
+                $price
             ]);
 
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -373,17 +375,19 @@ class AppointmentRepository {
         int $professionalId,
         int $serviceId,
         DateTime $startTime,
-        ?string $notes = null
+        ?string $notes,
+        float $price
     ): int {
         try {
-            $stmt = $this->pdo->prepare("CALL sp_create_appointment(?, ?, ?, ?, ?)");
-            
+            $stmt = $this->pdo->prepare("CALL sp_create_appointment(?, ?, ?, ?, ?, ?)");
+
             $stmt->execute([
                 $patientId,
                 $professionalId,
                 $serviceId,
                 $startTime->format('Y-m-d H:i:s'),
-                $notes
+                $notes,
+                $price
             ]);
  
             $result = $stmt->fetch(PDO::FETCH_ASSOC);

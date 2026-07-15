@@ -143,10 +143,10 @@ class ProcedureController {
      * {
      *   "name": "Psicoterapia Individual",
      *   "description": "opcional",
-     *   "price": 150.00,
      *   "duration_minutes": 50,
      *   "category": "Individual"
      * }
+     * "price" não é mais usado (obsoleto) — o valor é definido por agendamento
      */
     public function store(Request $request): Response {
         try {

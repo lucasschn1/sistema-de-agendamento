@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Modal, Form, Button, Alert, Spinner, Row, Col } from 'react-bootstrap'
+import { Modal, Form, Button, Alert, Spinner } from 'react-bootstrap'
 import { createProcedure, updateProcedure } from '../../api/procedures'
 import { parseApiError, parseApiFieldErrors } from '../../utils/apiError'
 
@@ -7,6 +7,8 @@ const CATEGORIES = ['Individual', 'Casal', 'Familiar', 'Grupo', 'Avaliação']
 
 // =============================================
 // MODAL — CRIAR/EDITAR PROCEDIMENTO
+// Só cadastra o serviço em si (nome, categoria, duração) — o valor cobrado é
+// definido individualmente em cada agendamento, não fica fixo aqui
 // =============================================
 
 export default function ProcedureFormModal({ show, procedure, onClose, onSaved }) {
@@ -14,7 +16,6 @@ export default function ProcedureFormModal({ show, procedure, onClose, onSaved }
 
   const [name, setName]         = useState('')
   const [description, setDescription] = useState('')
-  const [price, setPrice]       = useState('')
   const [duration, setDuration] = useState('')
   const [category, setCategory] = useState('')
 
@@ -29,7 +30,6 @@ export default function ProcedureFormModal({ show, procedure, onClose, onSaved }
     setFieldErrors({})
     setName(procedure?.name ?? '')
     setDescription(procedure?.description ?? '')
-    setPrice(procedure?.price ?? '')
     setDuration(procedure?.duration_minutes ?? '')
     setCategory(procedure?.category ?? '')
   }, [show, procedure])
@@ -43,7 +43,6 @@ export default function ProcedureFormModal({ show, procedure, onClose, onSaved }
     const payload = {
       name,
       description,
-      price: Number(price),
       duration_minutes: Number(duration),
       category,
     }
@@ -107,37 +106,18 @@ export default function ProcedureFormModal({ show, procedure, onClose, onSaved }
             <Form.Control.Feedback type="invalid">{fieldErrors.category}</Form.Control.Feedback>
           </Form.Group>
 
-          <Row>
-            <Col>
-              <Form.Group className="mb-3">
-                <Form.Label>Preço (R$)</Form.Label>
-                <Form.Control
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  isInvalid={!!fieldErrors.price}
-                  required
-                />
-                <Form.Control.Feedback type="invalid">{fieldErrors.price}</Form.Control.Feedback>
-              </Form.Group>
-            </Col>
-            <Col>
-              <Form.Group className="mb-3">
-                <Form.Label>Duração (min)</Form.Label>
-                <Form.Control
-                  type="number"
-                  min="1"
-                  value={duration}
-                  onChange={(e) => setDuration(e.target.value)}
-                  isInvalid={!!fieldErrors.duration_minutes}
-                  required
-                />
-                <Form.Control.Feedback type="invalid">{fieldErrors.duration_minutes}</Form.Control.Feedback>
-              </Form.Group>
-            </Col>
-          </Row>
+          <Form.Group className="mb-3">
+            <Form.Label>Duração (min)</Form.Label>
+            <Form.Control
+              type="number"
+              min="1"
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+              isInvalid={!!fieldErrors.duration_minutes}
+              required
+            />
+            <Form.Control.Feedback type="invalid">{fieldErrors.duration_minutes}</Form.Control.Feedback>
+          </Form.Group>
 
           <Form.Group>
             <Form.Label>Descrição <span className="text-muted">(opcional)</span></Form.Label>

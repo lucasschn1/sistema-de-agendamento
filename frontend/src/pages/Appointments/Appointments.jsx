@@ -8,17 +8,20 @@ import {
   cancelAppointment,
   markNoShow,
   cancelRecurrence,
+  deleteAppointment,
 } from '../../api/appointments'
 import { listProfessionals } from '../../api/users'
 import { parseApiError } from '../../utils/apiError'
 import { useToast } from '../../context/ToastContext'
 import { STATUS_META } from './statusMeta'
 import MonthCalendar from './MonthCalendar'
-import AppointmentCard from './AppointmentCard'
+import AppointmentCard, { TrashIcon } from './AppointmentCard'
+import WeekCalendar, { mondayOf } from './WeekCalendar'
 import AppointmentCardSkeleton from '../../components/AppointmentCardSkeleton'
 import AppointmentFormModal from './AppointmentFormModal'
 import EditAppointmentModal from './EditAppointmentModal'
 import ReasonModal from './ReasonModal'
+import ConfirmModal from '../../components/ConfirmModal'
 
 function toDateKey(date) {
   const y = date.getFullYear()
@@ -37,7 +40,7 @@ function formatSelectedDate(dateKey) {
 }
 
 export default function Appointments() {
-  const { isProfessional } = useAuth()
+  const { isProfessional, isAdmin } = useAuth()
   const { showToast } = useToast()
   const today = useMemo(() => new Date(), [])
 
@@ -52,11 +55,14 @@ export default function Appointments() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editingAppointment, setEditingAppointment] = useState(null)
   const [reasonModal, setReasonModal] = useState(null) // { title, required, action, appointment }
+  const [deletingAppointment, setDeletingAppointment] = useState(null)
+  const [expandedId, setExpandedId] = useState(null) // id do único card expandido (Lista ou Semanal)
 
   const [professionals, setProfessionals] = useState([])
   const [filterProfessionalId, setFilterProfessionalId] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
-  const [view, setView] = useState('calendar') // 'calendar' | 'cancelled'
+  const [view, setView] = useState('calendar') // 'calendar' | 'week' | 'cancelled'
+  const [weekOffset, setWeekOffset] = useState(0)
 
   useEffect(() => {
     if (isProfessional()) return
@@ -70,16 +76,24 @@ export default function Appointments() {
     try {
       let params = {}
 
-      // Admin filtra pelo intervalo visível no calendário; profissional sempre vê os seus
+      // Admin filtra pelo intervalo visível na visão atual; profissional sempre vê os seus
       if (!isProfessional()) {
-        const gridStart = new Date(year, month, 1)
-        gridStart.setDate(gridStart.getDate() - gridStart.getDay())
-        const gridEnd = new Date(gridStart)
-        gridEnd.setDate(gridStart.getDate() + 41)
+        let rangeStart, rangeEnd
+
+        if (view === 'week') {
+          rangeStart = mondayOf(weekOffset)
+          rangeEnd = new Date(rangeStart)
+          rangeEnd.setDate(rangeStart.getDate() + 6)
+        } else {
+          rangeStart = new Date(year, month, 1)
+          rangeStart.setDate(rangeStart.getDate() - rangeStart.getDay())
+          rangeEnd = new Date(rangeStart)
+          rangeEnd.setDate(rangeStart.getDate() + 41)
+        }
 
         params = {
-          start: toDateKey(gridStart),
-          end:   toDateKey(gridEnd),
+          start: toDateKey(rangeStart),
+          end:   toDateKey(rangeEnd),
         }
       }
 
@@ -90,7 +104,7 @@ export default function Appointments() {
     } finally {
       setLoading(false)
     }
-  }, [year, month, isProfessional])
+  }, [year, month, view, weekOffset, isProfessional])
 
   useEffect(() => {
     loadAppointments()
@@ -137,12 +151,14 @@ export default function Appointments() {
     const next = new Date(year, month + offset, 1)
     setYear(next.getFullYear())
     setMonth(next.getMonth())
+    setExpandedId(null)
   }
 
   const goToToday = () => {
     setYear(today.getFullYear())
     setMonth(today.getMonth())
     setSelectedDate(toDateKey(today))
+    setExpandedId(null)
   }
 
   // ── Ações de status ────────────────────────────────────
@@ -187,6 +203,24 @@ export default function Appointments() {
       ),
     })
   }
+
+  const handleDelete = (apt) => setDeletingAppointment(apt)
+
+  const confirmDelete = () =>
+    runAction(() => deleteAppointment(deletingAppointment.id), 'Agendamento excluído')
+
+  // ── Expand/collapse in-place — só um card expandido por vez, nas duas
+  // visualizações (Lista e Semanal usam o mesmo estado) ─────────────────
+  const toggleExpand = (id) => setExpandedId((current) => (current === id ? null : id))
+  const collapseAndRun = (fn) => (apt) => { setExpandedId(null); fn(apt) }
+
+  const handleEditCard = collapseAndRun(setEditingAppointment)
+  const handleConfirmCard = collapseAndRun(handleConfirm)
+  const handleCompleteCard = collapseAndRun(handleComplete)
+  const handleCancelCard = collapseAndRun(handleCancel)
+  const handleNoShowCard = collapseAndRun(handleNoShow)
+  const handleCancelRecurrenceCard = collapseAndRun(handleCancelRecurrence)
+  const handleDeleteCard = collapseAndRun(handleDelete)
 
   const handleCreated = () => {
     showToast('Agendamento criado com sucesso')
@@ -263,20 +297,46 @@ export default function Appointments() {
         <button
           type="button"
           className={`filter-chip${view === 'calendar' ? ' active' : ''}`}
-          onClick={() => setView('calendar')}
+          onClick={() => { setView('calendar'); setExpandedId(null) }}
         >
           Agenda
         </button>
         <button
           type="button"
+          className={`filter-chip${view === 'week' ? ' active' : ''}`}
+          onClick={() => { setView('week'); setExpandedId(null) }}
+        >
+          Semana
+        </button>
+        <button
+          type="button"
           className={`filter-chip${view === 'cancelled' ? ' active' : ''}`}
-          onClick={() => setView('cancelled')}
+          onClick={() => { setView('cancelled'); setExpandedId(null) }}
         >
           Cancelados{cancelledAppointments.length > 0 ? ` (${cancelledAppointments.length})` : ''}
         </button>
       </div>
 
-      {view === 'cancelled' ? (
+      {view === 'week' && (
+        <WeekCalendar
+          appointments={filteredAppointments}
+          weekOffset={weekOffset}
+          onPrevWeek={() => { setWeekOffset((v) => v - 1); setExpandedId(null) }}
+          onNextWeek={() => { setWeekOffset((v) => v + 1); setExpandedId(null) }}
+          onToday={() => { setWeekOffset(0); setExpandedId(null) }}
+          expandedId={expandedId}
+          onToggle={toggleExpand}
+          onEdit={handleEditCard}
+          onConfirm={handleConfirmCard}
+          onComplete={handleCompleteCard}
+          onCancel={handleCancelCard}
+          onNoShow={handleNoShowCard}
+          onCancelRecurrence={handleCancelRecurrenceCard}
+          onDelete={isAdmin() ? handleDeleteCard : undefined}
+        />
+      )}
+
+      {view === 'cancelled' && (
         <div className="patients-table-card">
           {cancelledAppointments.length === 0 ? (
             <p className="text-muted text-center py-4 mb-0">Nenhum agendamento cancelado neste período.</p>
@@ -289,6 +349,7 @@ export default function Appointments() {
                   <th>Profissional</th>
                   <th>Procedimento</th>
                   <th>Motivo</th>
+                  {isAdmin() && <th>Ações</th>}
                 </tr>
               </thead>
               <tbody>
@@ -299,20 +360,35 @@ export default function Appointments() {
                     <td>{apt.professional?.name}</td>
                     <td>{apt.service?.name}</td>
                     <td>{apt.cancellation_reason || '—'}</td>
+                    {isAdmin() && (
+                      <td>
+                        <Button
+                          size="sm"
+                          variant="outline-danger"
+                          className="appointment-card-delete-btn"
+                          title="Excluir agendamento"
+                          onClick={() => handleDelete(apt)}
+                        >
+                          <TrashIcon />
+                        </Button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
             </Table>
           )}
         </div>
-      ) : (
+      )}
+
+      {view === 'calendar' && (
       <div className="appointments-layout">
         <MonthCalendar
           year={year}
           month={month}
           statusCountsByDate={statusCountsByDate}
           selectedDate={selectedDate}
-          onSelectDate={setSelectedDate}
+          onSelectDate={(date) => { setSelectedDate(date); setExpandedId(null) }}
           onPrevMonth={() => goToMonth(-1)}
           onNextMonth={() => goToMonth(1)}
           onToday={goToToday}
@@ -342,12 +418,15 @@ export default function Appointments() {
                 <AppointmentCard
                   key={apt.id}
                   appointment={apt}
-                  onConfirm={handleConfirm}
-                  onComplete={handleComplete}
-                  onCancel={handleCancel}
-                  onNoShow={handleNoShow}
-                  onCancelRecurrence={handleCancelRecurrence}
-                  onEdit={setEditingAppointment}
+                  isExpanded={expandedId === apt.id}
+                  onToggle={toggleExpand}
+                  onEdit={handleEditCard}
+                  onConfirm={handleConfirmCard}
+                  onComplete={handleCompleteCard}
+                  onCancel={handleCancelCard}
+                  onNoShow={handleNoShowCard}
+                  onCancelRecurrence={handleCancelRecurrenceCard}
+                  onDelete={isAdmin() ? handleDeleteCard : undefined}
                 />
               ))}
             </div>
@@ -376,6 +455,15 @@ export default function Appointments() {
         required={reasonModal?.required}
         onClose={() => setReasonModal(null)}
         onConfirm={(reason) => reasonModal?.onConfirm(reason)}
+      />
+
+      <ConfirmModal
+        show={!!deletingAppointment}
+        title="Excluir agendamento"
+        message={`Tem certeza que deseja excluir o agendamento de ${deletingAppointment?.patient?.name} em ${deletingAppointment?.formatted_start}? Essa ação não pode ser desfeita pelo usuário.`}
+        confirmLabel="Excluir"
+        onClose={() => setDeletingAppointment(null)}
+        onConfirm={confirmDelete}
       />
     </div>
   )

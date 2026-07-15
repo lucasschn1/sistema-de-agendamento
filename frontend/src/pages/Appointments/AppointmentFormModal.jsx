@@ -28,6 +28,7 @@ export default function AppointmentFormModal({ show, onClose, onCreated, default
   const [professionalId, setProfessionalId] = useState('')
   const [serviceId, setServiceId]           = useState('')
   const [time, setTime]                     = useState('')
+  const [price, setPrice]                   = useState('')
   const [notes, setNotes]                   = useState('')
 
   const [isRecurring, setIsRecurring]     = useState(false)
@@ -57,6 +58,7 @@ export default function AppointmentFormModal({ show, onClose, onCreated, default
     setPatientId('')
     setProfessionalId('')
     setServiceId('')
+    setPrice('')
     setNotes('')
     setIsRecurring(false)
     setRecurrenceType('semanal')
@@ -98,6 +100,14 @@ export default function AppointmentFormModal({ show, onClose, onCreated, default
     return () => clearTimeout(timer)
   }, [show, isRecurring, professionalId, date, time, serviceId, procedures])
 
+  // Sugere o valor do procedimento como ponto de partida, mas o valor final do
+  // agendamento é sempre editável e independente — só preenche se ainda estiver vazio
+  useEffect(() => {
+    if (!serviceId || price !== '') return
+    const service = procedures.find((s) => String(s.id) === String(serviceId))
+    if (service?.price) setPrice(String(service.price))
+  }, [serviceId]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
@@ -115,6 +125,7 @@ export default function AppointmentFormModal({ show, onClose, onCreated, default
           start_hour:      `${time}:00`,
           start_date:      startDate,
           end_date:        endDate || undefined,
+          price:           Number(price),
           notes,
         })
       } else {
@@ -123,6 +134,7 @@ export default function AppointmentFormModal({ show, onClose, onCreated, default
           professional_id: Number(professionalId),
           service_id:      Number(serviceId),
           start_time:      `${date} ${time}:00`,
+          price:           Number(price),
           notes,
         })
       }
@@ -200,11 +212,26 @@ export default function AppointmentFormModal({ show, onClose, onCreated, default
                   <option value="">Selecione...</option>
                   {procedures.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.name} — {s.formatted_price} ({s.formatted_duration})
+                      {s.name} ({s.formatted_duration})
                     </option>
                   ))}
                 </Form.Select>
                 <Form.Control.Feedback type="invalid">{fieldErrors.service_id}</Form.Control.Feedback>
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Valor cobrado (R$)</Form.Label>
+                <Form.Control
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  isInvalid={!!fieldErrors.price}
+                  required
+                />
+                <Form.Control.Feedback type="invalid">{fieldErrors.price}</Form.Control.Feedback>
+                <div className="form-text">Pode ser diferente do valor usual deste procedimento — defina o valor deste atendimento específico.</div>
               </Form.Group>
 
               <Form.Check

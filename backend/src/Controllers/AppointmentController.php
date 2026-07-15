@@ -201,6 +201,7 @@ Class AppointmentController {
      *   "professional_id": 1,
      *   "service_id": 1,
      *   "start_time": "2026-06-15 14:00:00",
+     *   "price": 150.00,
      *   "notes": "opcional"
      * }
      */
@@ -244,6 +245,7 @@ Class AppointmentController {
      *   "start_hour": "10:00:00",
      *   "start_date": "2026-06-16",
      *   "end_date": "2026-12-31",
+     *   "price": 150.00,
      *   "notes": "opcional"
      * }
      */

@@ -46,11 +46,15 @@ class ProcedureService {
 
     /**
      * Cria um novo procedimento
-     * 
+     *
+     * NOTA: 'price' está obsoleto — o procedimento é só um cadastro do serviço
+     * (nome, descrição, duração). O valor cobrado é definido individualmente
+     * em cada agendamento (ver Appointment::price), não mais aqui.
+     *
      * @param array $data [
      *   'name' => string (required),
      *   'description' => string (optional),
-     *   'price' => float (required),
+     *   'price' => float (opcional, obsoleto — não é mais usado em nenhum cálculo),
      *   'duration_minutes' => int (required),
      *   'category' => string (optional) ex: 'Individual', 'Casal', 'Familiar'
      * ]
@@ -61,11 +65,13 @@ class ProcedureService {
      * @return int ID do procedimento criado
      */
     public function createProcedure(array $data): int {
-        // validação de campos obrigatórios
-        $this->validateRequiredFields($data, ['name', 'price', 'duration_minutes']);
+        // validação de campos obrigatórios (preço não é mais obrigatório aqui)
+        $this->validateRequiredFields($data, ['name', 'duration_minutes']);
 
         // validação de regras de negócios
-        $this->validatePrice($data['price']);
+        if (isset($data['price'])) {
+            $this->validatePrice($data['price']);
+        }
         $this->validateDuration($data['duration_minutes']);
 
         // sanitiza dados

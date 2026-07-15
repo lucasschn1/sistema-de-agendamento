@@ -139,6 +139,8 @@ Class User {
             'id'                => $this->id,
             'name'              => $this->name,
             'email'             => $this->email,
+            'cpf'               => $this->cpf,
+            'phone'             => $this->phone,
             'birthdate'         => $this->birthdate?->format('Y-m-d'),
             'role'              => $this->role,
             'professional_type' => $this->professionalType,
@@ -146,6 +148,7 @@ Class User {
             'specialty'         => $this->specialty,
             'bio'               => $this->bio,
             'active'            => $this->active,
+            'created_at'        => $this->created_at?->format('Y-m-d H:i:s'),
         ];
     }
 

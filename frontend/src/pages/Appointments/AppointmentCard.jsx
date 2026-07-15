@@ -1,51 +1,37 @@
-import { useState } from 'react'
-import { Button, Spinner } from 'react-bootstrap'
 import { statusLabel, statusClassName } from './statusMeta'
-import { getAppointmentHistory } from '../../api/appointments'
+import AppointmentExpandedContent from './AppointmentExpandedContent'
 
-function formatHistoryDate(value) {
-  if (!value) return ''
-  return new Date(value.replace(' ', 'T')).toLocaleString('pt-BR', {
-    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
-  })
+export function TrashIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={14} height={14}>
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <line x1="10" y1="11" x2="10" y2="17" />
+      <line x1="14" y1="11" x2="14" y2="17" />
+    </svg>
+  )
 }
 
 // =============================================
-// CARD DE AGENDAMENTO — mostra dados + ações de status
-// Clicável: expande e mostra detalhes (preço, duração, pagamento)
+// CARD DE AGENDAMENTO — resumo compacto; clicar expande/recolhe in-place
+// (sem modal) revelando detalhes, histórico e ações
 // =============================================
 
-export default function AppointmentCard({ appointment: apt, onConfirm, onComplete, onCancel, onNoShow, onCancelRecurrence, onEdit }) {
-  const [expanded, setExpanded] = useState(false)
-  const [history, setHistory] = useState(null)
-  const [historyLoading, setHistoryLoading] = useState(false)
-
-  const toggleExpanded = () => {
-    setExpanded((v) => !v)
-    if (!history && !historyLoading) {
-      setHistoryLoading(true)
-      getAppointmentHistory(apt.id)
-        .then(setHistory)
-        .catch(() => setHistory([]))
-        .finally(() => setHistoryLoading(false))
-    }
-  }
-
-  const canConfirm  = apt.status === 'scheduled'
-  const canComplete = apt.status === 'confirmed'
-  const canCancel   = apt.status === 'scheduled' || apt.status === 'confirmed'
-  const canNoShow   = apt.status === 'confirmed'
-  const canCancelRecurrence = apt.is_recurring && canCancel
-  const canEdit     = apt.status === 'scheduled' || apt.status === 'confirmed'
+export default function AppointmentCard({
+  appointment: apt, isExpanded, onToggle,
+  onEdit, onConfirm, onComplete, onCancel, onNoShow, onCancelRecurrence, onDelete,
+}) {
+  const handleToggle = () => onToggle(apt.id)
 
   return (
-    <div className={`appointment-card ${statusClassName(apt.status)}${expanded ? ' is-expanded' : ''}`}>
+    <div className={`appointment-card ${statusClassName(apt.status)}${isExpanded ? ' is-expanded' : ''}`}>
       <div
         className="appointment-card-main"
-        onClick={toggleExpanded}
+        onClick={handleToggle}
         role="button"
         tabIndex={0}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleExpanded() }}
+        aria-expanded={isExpanded}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleToggle() } }}
       >
         <div className="appointment-card-time">{apt.formatted_start}</div>
 
@@ -54,10 +40,8 @@ export default function AppointmentCard({ appointment: apt, onConfirm, onComplet
             {apt.patient?.name}
             {apt.is_recurring && <span className="appointment-card-recurring-badge">Recorrente</span>}
           </p>
-          <p className="appointment-card-detail">
-            {apt.service?.name} · {apt.professional?.name}
-          </p>
-          {apt.notes && <p className="appointment-card-notes">{apt.notes}</p>}
+          <p className="appointment-card-detail">{apt.service?.name} · {apt.professional?.name}</p>
+          <p className="appointment-card-price">{apt.formatted_price}</p>
         </div>
 
         <span className={`appointment-card-status ${statusClassName(apt.status)}`}>
@@ -67,76 +51,18 @@ export default function AppointmentCard({ appointment: apt, onConfirm, onComplet
         <span className="appointment-card-expand-icon" aria-hidden="true">▾</span>
       </div>
 
-      {expanded && (
-        <div className="appointment-card-details">
-          <div className="appointment-card-details-item">
-            <span className="appointment-card-details-label">Preço</span>
-            <span>{apt.formatted_price}</span>
-          </div>
-          <div className="appointment-card-details-item">
-            <span className="appointment-card-details-label">Duração</span>
-            <span>{apt.formatted_duration}</span>
-          </div>
-          <div className="appointment-card-details-item">
-            <span className="appointment-card-details-label">Pagamento</span>
-            <span>
-              {apt.paid
-                ? `Pago via ${apt.payment_method ?? '—'}${apt.payment_date ? ` em ${apt.payment_date}` : ''}`
-                : 'Pendente'}
-            </span>
-          </div>
-
-          <div className="appointment-card-history">
-            <span className="appointment-card-details-label">Histórico</span>
-            {historyLoading ? (
-              <Spinner animation="border" size="sm" />
-            ) : !history || history.length === 0 ? (
-              <p className="appointment-card-history-empty">Nenhuma alteração registrada ainda.</p>
-            ) : (
-              <ul className="appointment-card-history-list">
-                {history.map((entry) => (
-                  <li key={entry.id}>
-                    <strong>{statusLabel(entry.action)}</strong> por {entry.changed_by_name ?? 'sistema'}
-                    {' · '}{formatHistoryDate(entry.created_at)}
-                    {entry.reason && <span className="appointment-card-history-reason"> — {entry.reason}</span>}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-      )}
-
-      <div className="appointment-card-actions">
-        {canEdit && (
-          <Button size="sm" variant="outline-secondary" onClick={() => onEdit(apt)}>
-            Editar
-          </Button>
-        )}
-        {canConfirm && (
-          <Button size="sm" variant="outline-success" onClick={() => onConfirm(apt)}>
-            Confirmar
-          </Button>
-        )}
-        {canComplete && (
-          <Button size="sm" variant="outline-primary" onClick={() => onComplete(apt)}>
-            Concluir
-          </Button>
-        )}
-        {canNoShow && (
-          <Button size="sm" variant="outline-warning" onClick={() => onNoShow(apt)}>
-            Falta
-          </Button>
-        )}
-        {canCancel && (
-          <Button size="sm" variant="outline-danger" onClick={() => onCancel(apt)}>
-            Cancelar
-          </Button>
-        )}
-        {canCancelRecurrence && (
-          <Button size="sm" variant="outline-danger" onClick={() => onCancelRecurrence(apt)}>
-            Cancelar recorrência
-          </Button>
+      <div className="appointment-card-expand-wrapper">
+        {isExpanded && (
+          <AppointmentExpandedContent
+            appointment={apt}
+            onEdit={onEdit}
+            onConfirm={onConfirm}
+            onComplete={onComplete}
+            onCancel={onCancel}
+            onNoShow={onNoShow}
+            onCancelRecurrence={onCancelRecurrence}
+            onDelete={onDelete}
+          />
         )}
       </div>
     </div>

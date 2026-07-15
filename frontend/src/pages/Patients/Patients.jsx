@@ -9,6 +9,7 @@ import PatientFormModal from './PatientFormModal'
 import ConfirmModal from '../../components/ConfirmModal'
 import TableSkeleton from '../../components/TableSkeleton'
 import DensityToggle, { useTableDensity } from '../../components/DensityToggle'
+import PersonDetailModal from '../../components/PersonDetailModal'
 
 export default function Patients() {
   const { showToast } = useToast()
@@ -25,6 +26,7 @@ export default function Patients() {
   const [showModal, setShowModal]   = useState(false)
   const [editingPatient, setEditingPatient] = useState(null)
   const [deactivatingPatient, setDeactivatingPatient] = useState(null)
+  const [viewingPatient, setViewingPatient] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -177,7 +179,12 @@ export default function Patients() {
                       )}
                       <tr>
                         <td>
-                          <div className="table-row-identity">
+                          <div
+                            className="table-row-identity table-row-identity-clickable"
+                            onClick={() => setViewingPatient(p)}
+                            role="button"
+                            tabIndex={0}
+                          >
                             <span className="table-row-avatar">{p.name?.charAt(0).toUpperCase()}</span>
                             <span className="table-row-name">{p.name}</span>
                           </div>
@@ -213,6 +220,13 @@ export default function Patients() {
           </Table>
         )}
       </div>
+
+      <PersonDetailModal
+        show={!!viewingPatient}
+        person={viewingPatient}
+        onClose={() => setViewingPatient(null)}
+        onEdit={(p) => { setViewingPatient(null); openEdit(p) }}
+      />
 
       <PatientFormModal
         show={showModal}

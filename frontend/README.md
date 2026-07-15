@@ -94,3 +94,6 @@ Todas as cores/espaçamentos ficam em variáveis CSS no topo de [`theme.css`](sr
 | `/procedures` | Procedimentos | Autenticado (leitura) / Admin (escrita) |
 | `/financial` | Financeiro | Admin |
 | `/users` | Usuários (profissionais/admins) | Admin |
+| `/rentals` | Sublocação de salas | Admin |
+
+A página de Agendamentos tem duas visualizações alternáveis (Agenda em lista e Semana, um calendário estilo Google Calendar) que compartilham o mesmo estado de card expandido e o mesmo componente [`AppointmentExpandedContent`](src/pages/Appointments/AppointmentExpandedContent.jsx) para detalhes/histórico/ações — a Agenda expande o card in-place, a Semana abre os detalhes num painel flutuante ancorado ao card (a grade nunca muda de tamanho). A exclusão de agendamento é uma ação exclusiva de admin, reaproveitada nas duas visualizações e na tabela de Cancelados.

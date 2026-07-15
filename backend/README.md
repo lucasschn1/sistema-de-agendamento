@@ -132,7 +132,8 @@ Nas tabelas abaixo, a coluna **Acesso** indica isso.
 |---|---|---|
 | GET | `/api/appointments` | Lista. Query: `professional_id`, `patient_id`, `status`, `start`, `end`. Profissional sempre vê só os seus (ignora filtros de data); admin pode filtrar por período |
 | GET | `/api/appointments/{id}` | Detalhe com paciente/profissional/serviço |
-| POST | `/api/appointments` | `{ patient_id, professional_id, service_id, start_time, notes? }` |
+| GET | `/api/appointments/{id}/history` | Histórico de alterações de status (auditoria) |
+| POST | `/api/appointments` | `{ patient_id, professional_id, service_id, start_time, price, notes? }` |
 | PUT | `/api/appointments/{id}` | Atualiza `notes` e/ou `price` (não altera horário) |
 | PATCH | `/api/appointments/{id}/confirm` | `scheduled` → `confirmed` |
 | PATCH | `/api/appointments/{id}/complete` | → `completed` |
@@ -158,11 +159,14 @@ Nas tabelas abaixo, a coluna **Acesso** indica isso.
   "start_hour": "09:00:00",
   "start_date": "2026-07-16",
   "end_date": "2026-12-31", // opcional — sem isso, gera sessões por até 2 anos
+  "price": 150.00,
   "notes": "opcional"
 }
 ```
 
 Status possíveis de um agendamento: `scheduled`, `confirmed`, `completed`, `cancelled`, `no_show`.
+
+O campo `price` é sempre definido por sessão/recorrência no momento da criação — ele **não** vem mais do procedimento (ver seção "Procedimentos / serviços" abaixo). Isso permite cobrar valores diferentes para o mesmo procedimento em agendamentos distintos (ex: desconto combinado com um paciente específico), e o preço de um agendamento já criado não muda se o procedimento for reprecificado depois. Cada entrada do histórico (`/api/appointments/{id}/history`) registra a ação (`action`), quem alterou (`changed_by_name`), quando (`created_at`) e um motivo opcional (`reason`).
 
 ### Pacientes e profissionais (autenticado para leitura; escrita é admin)
 
@@ -190,14 +194,78 @@ Senha mínima: 6 caracteres.
 | GET | `/api/procedures/{id}` | Autenticado | Detalhe |
 | GET | `/api/procedures/categories` | Admin | Lista de categorias em uso |
 | GET | `/api/procedures/stats` | Admin | Estatísticas e procedimentos mais usados |
-| POST | `/api/procedures` | Admin | `{ name, description?, price, duration_minutes, category }` |
+| POST | `/api/procedures` | Admin | `{ name, description?, price?, duration_minutes, category }` |
 | PUT | `/api/procedures/{id}` | Admin | Atualiza qualquer campo acima |
-| PATCH | `/api/procedures/{id}/price` | Admin | `{ price }` |
+| PATCH | `/api/procedures/{id}/price` | Admin | `{ price }` — legado, não usado pelo frontend atual |
 | PATCH | `/api/procedures/{id}/activate` | Admin | |
 | PATCH | `/api/procedures/{id}/deactivate` | Admin | Bloqueado se houver recorrências ativas usando o procedimento |
 | DELETE | `/api/procedures/{id}` | Admin | Soft delete (equivalente a desativar) |
 
 Categorias usadas pelo frontend: `Individual`, `Casal`, `Familiar`, `Grupo`, `Avaliação`.
+
+`price` no procedimento é vestigial (default `0.00`, opcional na criação): o preço de fato cobrado é sempre definido por agendamento (ver seção "Agendamentos" acima), não pelo catálogo de procedimentos. `PATCH /api/procedures/{id}/price` continua existindo na API por compatibilidade, mas a UI atual não o expõe.
+
+### Sublocação de salas (admin)
+
+Módulo para alugar salas da clínica para terceiros (ex: outros profissionais que não atendem pacientes da clínica), separado do fluxo de agendamentos. Todas as rotas exigem `role = admin`.
+
+**Períodos (`period`)** — três blocos fixos de 4h elegíveis a recorrência, mais um período avulso:
+
+| Período | Horário | Elegível a recorrência? |
+|---|---|---|
+| `manha` | 08:00–12:00 | Sim |
+| `tarde` | 12:00–16:00 | Sim |
+| `noite` | 16:00–20:00 | Sim |
+| `avulso` | 1 hora cheia, entre 08h e 21h (`hour` de 8 a 20) | Não — sempre esporádico |
+
+Uma reserva `avulso` informa `hour` (inteiro 8–20; `hour: 20` = último horário possível, das 20h às 21h) e é sempre cobrada avulsamente (fatura mensal por uso). Reservas `manha`/`tarde`/`noite` podem ser avulsas (uma data específica) ou recorrentes (mesmo dia da semana, toda semana, com fatura antecipada).
+
+**Salas** (`/api/rentals/rooms`):
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/api/rentals/rooms?active=true\|false` | Lista salas |
+| GET | `/api/rentals/rooms/{id}` | Detalhe |
+| POST | `/api/rentals/rooms` | `{ name }` |
+| PUT | `/api/rentals/rooms/{id}` | `{ name }` |
+| PATCH | `/api/rentals/rooms/{id}/activate` | Reativa |
+| PATCH | `/api/rentals/rooms/{id}/deactivate` | Bloqueado se houver reservas futuras ou recorrências ativas |
+| DELETE | `/api/rentals/rooms/{id}` | Soft delete — mesma regra de bloqueio da desativação |
+
+**Reservas avulsas/pontuais** (`/api/rentals/bookings`):
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/api/rentals/bookings?start=&end=` | Lista no período (`start`/`end` obrigatórios) |
+| GET | `/api/rentals/bookings/{id}` | Detalhe |
+| POST | `/api/rentals/bookings` | `{ rental_room_id, tenant_user_id, booking_date, period: manha\|tarde\|noite\|avulso, hour?, price }` — `hour` obrigatório só quando `period = avulso` |
+| PATCH | `/api/rentals/bookings/{id}/cancel` | `{ reason? }` |
+
+Status de uma reserva (`RentalBooking.status`): `scheduled`, `cancelled`.
+
+**Recorrências** (`/api/rentals/recurrences`):
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/api/rentals/recurrences` | Lista |
+| GET | `/api/rentals/recurrences/{id}` | Detalhe |
+| POST | `/api/rentals/recurrences` | `{ rental_room_id, tenant_user_id, period: manha\|tarde\|noite, day_of_week, start_date, end_date?, price }` — `avulso` não é elegível |
+| PATCH | `/api/rentals/recurrences/{id}/release` | `{ reason? }` — encerramento manual (ex: inadimplência); não há liberação automática |
+
+**Faturas** (`/api/rentals/invoices`):
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/api/rentals/invoices` | Lista — atualiza status vencido (`overdue`) antes de retornar |
+| PATCH | `/api/rentals/invoices/{id}/pay` | `{ payment_method }` (obrigatório) |
+
+Tipos de fatura (`RentalInvoice.type`): `period_advance` (recorrência de período, cobrada antecipadamente para o mês seguinte) e `avulso_monthly` (consolidado de reservas avulsas do mês, cobrado depois de usado). Status (`RentalInvoice.status`): `pending`, `paid`, `overdue`.
+
+**Job mensal** — `backend/scripts/rental_monthly_close.php`, idempotente, deve rodar uma vez por mês (sugestão de cron: `0 3 1 * *`, todo dia 1 às 03:00):
+
+1. Fecha (consolida) as faturas `avulso_monthly` do mês que terminou.
+2. Gera as faturas `period_advance` das recorrências ativas para o mês que está começando.
+3. Estende (top up) recorrências sem `end_date` gerando as próximas reservas.
 
 ### Financeiro (admin)
 
@@ -219,12 +287,16 @@ public/index.php        Ponto de entrada — bootstrap, CORS, dispatch
 src/Config/              bootstrap, dependências (DI container manual), routes.php
 src/Core/                Router, Request, Response, Database
 src/Middleware/          AuthMiddleware, RoleMiddleware
-src/Controllers/         Um por recurso (Auth, User, Appointment, Procedure, Financial)
-src/Services/            Regras de negócio e validação
+src/Controllers/         Um por recurso (Auth, User, Appointment, Procedure, Financial,
+                         RentalRoom, RentalBooking, RentalRecurrence, RentalInvoice)
+src/Services/            Regras de negócio e validação (inclui RentalBillingService)
 src/Repositories/        Acesso a dados (PDO)
-src/Models/              Entidades (User, Appointment, Service)
-src/Exceptions/          Exceções de negócio, organizadas por domínio
+src/Models/              Entidades (User, Appointment, Service, RentalRoom, RentalBooking,
+                         RentalRecurrence, RentalInvoice)
+src/Support/             RentalPeriod.php — mapeia period (manhã/tarde/noite/avulso) para horários
+src/Exceptions/          Exceções de negócio, organizadas por domínio (inclui rental/)
 database/schema2.sql     Schema atual do banco
+scripts/rental_monthly_close.php   Job mensal de sublocação (ver seção acima) — agendar via cron
 tests/                   Testes PHPUnit (Services e Repositories)
 ```
 

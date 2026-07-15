@@ -10,6 +10,7 @@ import ResetPasswordModal from './ResetPasswordModal'
 import ConfirmModal from '../../components/ConfirmModal'
 import TableSkeleton from '../../components/TableSkeleton'
 import DensityToggle, { useTableDensity } from '../../components/DensityToggle'
+import PersonDetailModal from '../../components/PersonDetailModal'
 
 export default function Users() {
   const { showToast } = useToast()
@@ -25,6 +26,7 @@ export default function Users() {
   const [editingUser, setEditingUser] = useState(null)
   const [resettingUser, setResettingUser] = useState(null)
   const [deactivatingUser, setDeactivatingUser] = useState(null)
+  const [viewingUser, setViewingUser] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -166,7 +168,12 @@ export default function Users() {
                       )}
                       <tr>
                         <td>
-                          <div className="table-row-identity">
+                          <div
+                            className="table-row-identity table-row-identity-clickable"
+                            onClick={() => setViewingUser(u)}
+                            role="button"
+                            tabIndex={0}
+                          >
                             <span className="table-row-avatar">{u.name?.charAt(0).toUpperCase()}</span>
                             <span className="table-row-name">{u.name}</span>
                           </div>
@@ -206,6 +213,13 @@ export default function Users() {
           </Table>
         )}
       </div>
+
+      <PersonDetailModal
+        show={!!viewingUser}
+        person={viewingUser}
+        onClose={() => setViewingUser(null)}
+        onEdit={(u) => { setViewingUser(null); openEdit(u) }}
+      />
 
       <UserFormModal
         show={showModal}

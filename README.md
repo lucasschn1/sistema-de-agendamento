@@ -4,10 +4,12 @@ Sistema de agendamento para clínicas de psicologia (psicólogos, psicopedagogos
 
 ## O que o sistema faz
 
-- **Agendamentos** — calendário mensal colorido por status, criação de sessão única ou recorrente (semanal/quinzenal), checagem de disponibilidade em tempo real, confirmar/concluir/cancelar/marcar falta.
-- **Pacientes e Usuários** — cadastro de pacientes, profissionais e administradores; ativar/desativar; redefinir senha.
-- **Procedimentos** — catálogo de serviços com preço, duração e categoria.
-- **Financeiro** — resumo do mês, pagamentos pendentes, registro de pagamento.
+- **Agendamentos** — visão em Agenda (lista) ou em Semana (calendário estilo Google Calendar), criação de sessão única ou recorrente (semanal/quinzenal), preço definido por agendamento (independente do procedimento), checagem de disponibilidade em tempo real, confirmar/concluir/cancelar/marcar falta, histórico de alterações e exclusão (admin).
+- **Pacientes e Usuários** — cadastro de pacientes, profissionais e administradores; ativar/desativar; redefinir senha; validação de e-mail duplicado em tempo real.
+- **Procedimentos** — catálogo de serviços com duração e categoria (o preço é definido por agendamento, não fixo no procedimento).
+- **Sublocação de salas** — aluguel de salas da clínica para terceiros: reservas avulsas (hora avulsa) ou recorrentes (período fixo semanal, com fatura antecipada), faturamento mensal automático e controle de pagamento.
+- **Financeiro** — resumo do mês, pagamentos pendentes, registro de pagamento, gráficos financeiros.
+- **Dashboard** — aniversariantes do mês, indicadores rápidos.
 - **E-mail** — o paciente recebe um e-mail (via Resend) quando o agendamento é criado e quando é confirmado.
 
 ## Estrutura do repositório

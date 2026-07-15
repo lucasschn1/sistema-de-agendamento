@@ -133,13 +133,12 @@ export default function Procedures() {
               <tr>
                 <th>Nome</th>
                 <th>Categoria</th>
-                <th>Preço</th>
                 <th>Duração</th>
                 <th>Status</th>
                 <th>Ações</th>
               </tr>
             </thead>
-            <TableSkeleton columns={6} />
+            <TableSkeleton columns={5} />
           </Table>
         ) : procedures.length === 0 ? (
           <div className="text-center py-4">
@@ -154,7 +153,6 @@ export default function Procedures() {
               <tr>
                 <th>Nome</th>
                 <th>Categoria</th>
-                <th>Preço</th>
                 <th>Duração</th>
                 <th>Status</th>
                 <th>Ações</th>
@@ -172,7 +170,7 @@ export default function Procedures() {
                     <Fragment key={p.id}>
                       {isNewLetter && (
                         <tr className="alphabet-divider">
-                          <td colSpan={6}>{letter}</td>
+                          <td colSpan={5}>{letter}</td>
                         </tr>
                       )}
                       <tr>
@@ -182,7 +180,6 @@ export default function Procedures() {
                         <td>
                           <span className="table-category-tag">{p.category}</span>
                         </td>
-                        <td className="table-row-name">{p.formatted_price}</td>
                         <td className="table-row-subtext">{p.formatted_duration}</td>
                         <td>
                           <span className={p.active ? 'status-pill-active' : 'status-pill-inactive'}>

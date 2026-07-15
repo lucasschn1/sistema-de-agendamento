@@ -85,9 +85,10 @@ class AppointmentService {
      *   'professional_id' => int (required),
      *   'service_id'      => int (required),
      *   'start_time'      => string|DateTime (required) ex: '2026-06-15 14:00:00',
+     *   'price'           => float (required) — valor cobrado neste atendimento específico,
      *   'notes'           => string (optional)
      * ]
-     * @throws ValidationException        Se campos obrigatórios faltarem
+     * @throws ValidationException        Se campos obrigatórios faltarem ou preço inválido
      * @throws UserNotFoundException      Se paciente ou profissional não existirem
      * @throws InactiveUserException      Se paciente ou profissional estiverem inativos
      * @throws InvalidUserRoleException   Se o usuário não tiver a role correta
@@ -104,6 +105,7 @@ class AppointmentService {
             'professional_id',
             'service_id',
             'start_time',
+            'price',
         ]);
 
         // 2. Valida e converte start_time
@@ -112,16 +114,20 @@ class AppointmentService {
         // 3. Valida que o agendamento não é no passado
         $this->validateFutureDateTime($startTime, 'agendar');
 
-        // 4. Valida paciente (existe, ativo e role correta)
+        // 4. Valida o preço informado (cada agendamento tem seu próprio valor,
+        // independente do procedimento — não vem mais de services.price)
+        $price = $this->validatePrice($data['price']);
+
+        // 5. Valida paciente (existe, ativo e role correta)
         $this->validatePatient((int) $data['patient_id']);
 
-        // 5. Valida profissional (existe, ativo e role correta)
+        // 6. Valida profissional (existe, ativo e role correta)
         $this->validateProfessional((int) $data['professional_id']);
 
-        // 6. Valida procedimento (existe e ativo)
+        // 7. Valida procedimento (existe e ativo)
         $this->validateProcedure((int) $data['service_id']);
 
-        // 7. Chama Repository (que chama sp_create_appointment)
+        // 8. Chama Repository (que chama sp_create_appointment)
         // NÃO verificamos conflito de horário aqui — o Trigger do banco faz isso
         try {
             return $this->appointmentRepository->createUnique(
@@ -129,7 +135,8 @@ class AppointmentService {
                 professionalId: (int) $data['professional_id'],
                 serviceId:      (int) $data['service_id'],
                 startTime:      $startTime,
-                notes:          $data['notes'] ?? null
+                notes:          $data['notes'] ?? null,
+                price:          $price
             );
 
         } catch (DomainException $e) {
@@ -153,6 +160,7 @@ class AppointmentService {
      *   'start_hour'      => string (required) 'HH:MM:SS',
      *   'start_date'      => string|DateTime (required),
      *   'end_date'        => string|DateTime (optional) NULL = sem fim definido,
+     *   'price'           => float (required) — valor cobrado em cada sessão gerada,
      *   'notes'           => string (optional)
      * ]
      * @throws ValidationException
@@ -176,6 +184,7 @@ class AppointmentService {
             'day_of_week',
             'start_hour',
             'start_date',
+            'price',
         ]);
 
         // 2. Valida tipo de recorrência
@@ -209,12 +218,15 @@ class AppointmentService {
         // 8. Valida formato do horário (HH:MM:SS)
         $this->validateTimeFormat($data['start_hour']);
 
-        // 9. Valida paciente, profissional e procedimento
+        // 9. Valida o preço informado (mesmo valor pra todas as sessões geradas)
+        $price = $this->validatePrice($data['price']);
+
+        // 10. Valida paciente, profissional e procedimento
         $this->validatePatient((int) $data['patient_id']);
         $this->validateProfessional((int) $data['professional_id']);
         $this->validateProcedure((int) $data['service_id']);
 
-        // 10. Chama Repository (que chama sp_create_recurrence)
+        // 11. Chama Repository (que chama sp_create_recurrence)
         // Conflito de horário é verificado pelo Trigger em cada INSERT da procedure
         try {
             return $this->appointmentRepository->createRecurrence(
@@ -226,7 +238,8 @@ class AppointmentService {
                 startHour:      $data['start_hour'],
                 startDate:      $startDate,
                 endDate:        $endDate,
-                notes:          $data['notes'] ?? null
+                notes:          $data['notes'] ?? null,
+                price:          $price
             );
 
         } catch (DomainException $e) {
@@ -871,8 +884,31 @@ class AppointmentService {
     }
 
     /**
+     * Valida o valor cobrado no atendimento — cada agendamento tem seu próprio
+     * preço, informado por quem agenda (não vem mais de services.price)
+     *
+     * @param mixed $price
+     * @throws ValidationException
+     * @return float
+     */
+    private function validatePrice($price): float
+    {
+        if (!is_numeric($price)) {
+            throw new ValidationException(['price' => 'O preço deve ser um valor numérico']);
+        }
+
+        $price = (float) $price;
+
+        if ($price < 0) {
+            throw new ValidationException(['price' => 'O preço não pode ser negativo']);
+        }
+
+        return $price;
+    }
+
+    /**
      * Valida campos obrigatórios
-     * 
+     *
      * @param array $data
      * @param array $requiredFields
      * @throws ValidationException

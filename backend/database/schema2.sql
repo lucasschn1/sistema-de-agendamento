@@ -495,23 +495,25 @@ GROUP BY rg.id;
 DELIMITER //
 
 -- Procedure: Criar agendamento único
+-- O preço agora é informado por quem agenda (p_price), não vem mais do serviço —
+-- o mesmo procedimento pode ser cobrado com valores diferentes em cada atendimento
 CREATE PROCEDURE sp_create_appointment(
     IN p_patient_id INT,
     IN p_professional_id INT,
     IN p_service_id INT,
     IN p_start_time DATETIME,
-    IN p_notes TEXT
+    IN p_notes TEXT,
+    IN p_price DECIMAL(10, 2)
 )
 BEGIN
-    DECLARE v_price DECIMAL(10, 2);
     DECLARE v_duration INT;
 
-    SELECT price, duration_minutes
-    INTO v_price, v_duration
+    SELECT duration_minutes
+    INTO v_duration
     FROM services
     WHERE id = p_service_id AND active = TRUE AND deleted_at IS NULL;
 
-    IF v_price IS NULL THEN
+    IF v_duration IS NULL THEN
         SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'Serviço não encontrado ou inativo';
     END IF;
@@ -522,7 +524,7 @@ BEGIN
         recurrence_type, status, notes
     ) VALUES (
         p_patient_id, p_professional_id, p_service_id,
-        p_start_time, v_duration, v_price,
+        p_start_time, v_duration, p_price,
         'unico', 'scheduled', p_notes
     );
 
@@ -532,6 +534,8 @@ END //
 
 -- Procedure: Criar grupo de recorrência e gerar os agendamentos
 -- Gera todas as sessões do período de uma vez
+-- O preço (p_price) é o mesmo pra todas as sessões geradas desta recorrência —
+-- não vem mais do serviço, é informado por quem cria a recorrência
 CREATE PROCEDURE sp_create_recurrence(
     IN p_patient_id INT,
     IN p_professional_id INT,
@@ -541,23 +545,23 @@ CREATE PROCEDURE sp_create_recurrence(
     IN p_start_hour TIME,
     IN p_start_date DATE,
     IN p_end_date DATE,            -- NULL para sem fim
-    IN p_notes TEXT
+    IN p_notes TEXT,
+    IN p_price DECIMAL(10, 2)
 )
 BEGIN
-    DECLARE v_price DECIMAL(10, 2);
     DECLARE v_duration INT;
     DECLARE v_group_id INT;
     DECLARE v_current_date DATE;
     DECLARE v_interval INT;
     DECLARE v_limit INT DEFAULT 0;  -- contador de segurança
 
-    -- Busca dados do serviço
-    SELECT price, duration_minutes
-    INTO v_price, v_duration
+    -- Busca a duração do serviço (o preço agora vem de p_price, não daqui)
+    SELECT duration_minutes
+    INTO v_duration
     FROM services
     WHERE id = p_service_id AND active = TRUE AND deleted_at IS NULL;
 
-    IF v_price IS NULL THEN
+    IF v_duration IS NULL THEN
         SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'Serviço não encontrado ou inativo';
     END IF;
@@ -596,7 +600,7 @@ BEGIN
         ) VALUES (
             p_patient_id, p_professional_id, p_service_id,
             v_group_id, p_type,
-            TIMESTAMP(v_current_date, p_start_hour), v_duration, v_price,
+            TIMESTAMP(v_current_date, p_start_hour), v_duration, p_price,
             'scheduled', p_notes
         );
 
@@ -946,14 +950,14 @@ INSERT INTO users (name, email, password, role) VALUES
 ('Administrador', 'admin@clinica.com', '$2y$10$hash6', 'admin');
 
 -- Agendamento único
-CALL sp_create_appointment(4, 1, 1, '2026-02-20 14:00:00', 'Primeira sessão');
+CALL sp_create_appointment(4, 1, 1, '2026-02-20 14:00:00', 'Primeira sessão', 150.00);
 
 -- Recorrência semanal: João com Carlos, toda segunda-feira, das 10h
 -- (day_of_week=1 = Segunda)
-CALL sp_create_recurrence(4, 1, 1, 'semanal', 1, '10:00:00', '2026-02-16', '2026-06-30', 'Sessões semanais de TCC');
+CALL sp_create_recurrence(4, 1, 1, 'semanal', 1, '10:00:00', '2026-02-16', '2026-06-30', 'Sessões semanais de TCC', 150.00);
 
 -- Recorrência quinzenal: Maria com Ana, toda quarta-feira, das 15h
-CALL sp_create_recurrence(5, 2, 2, 'quinzenal', 3, '15:00:00', '2026-02-18', '2026-08-31', 'Terapia de casal quinzenal');
+CALL sp_create_recurrence(5, 2, 2, 'quinzenal', 3, '15:00:00', '2026-02-18', '2026-08-31', 'Terapia de casal quinzenal', 200.00);
 
 
 -- =============================================

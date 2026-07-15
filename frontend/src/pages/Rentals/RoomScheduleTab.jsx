@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Button, Form, Alert, Spinner, Modal } from 'react-bootstrap'
 import { listRentalRooms, listRentalBookings, cancelRentalBooking, releaseRentalRecurrence } from '../../api/rentals'
 import { parseApiError } from '../../utils/apiError'
@@ -8,6 +8,24 @@ import RentalRecurrenceFormModal from './RentalRecurrenceFormModal'
 
 // Linhas de hora em hora, das 08:00 às 20:00 (a última linha cobre 20h-21h, o avulso)
 const HOURS = Array.from({ length: 13 }, (_, i) => 8 + i)
+
+// Última hora de cada bloco fechado — usado só pra desenhar uma linha divisória
+// entre manhã/tarde/noite na grade, sem separar visualmente o avulso (20h)
+const PERIOD_BOUNDARY_HOURS = [11, 15, 19]
+
+// Linha do grid (CSS Grid) correspondente a uma hora — linha 1 é o cabeçalho
+// dos dias, e há 3 linhas extras "vazias" (as divisórias) intercaladas depois
+// das 11h, 15h e 19h. Precisamos de posicionamento explícito (em vez de
+// auto-flow) pra permitir que uma reserva de período ocupe 4 linhas de uma vez
+// só, como um retângulo contínuo, ao invés de repetir uma célula por hora.
+function hourRow(hour) {
+  return 2 + (hour - 8)
+    + (hour > 11 ? 1 : 0)
+    + (hour > 15 ? 1 : 0)
+    + (hour > 19 ? 1 : 0)
+}
+
+const DIVIDER_ROWS = PERIOD_BOUNDARY_HOURS.map((hour) => hourRow(hour) + 1)
 
 const PERIOD_LABELS = { manha: 'Manhã', tarde: 'Tarde', noite: 'Noite', avulso: 'Avulso' }
 
@@ -63,9 +81,10 @@ export default function RoomScheduleTab({ showToast }) {
   }, [])
 
   const start = weekStart(weekOffset)
-  const days = Array.from({ length: 7 }, (_, i) => {
+  // Segunda a sábado — domingo não é usado pela clínica
+  const days = Array.from({ length: 6 }, (_, i) => {
     const d = new Date(start)
-    d.setDate(start.getDate() + i)
+    d.setDate(start.getDate() + 1 + i)
     return d
   })
 
@@ -124,7 +143,7 @@ export default function RoomScheduleTab({ showToast }) {
       .then(() => { showToast('Sublocação fixa liberada'); load() })
       .catch((err) => showToast(parseApiError(err), 'danger'))
 
-  const weekLabel = `${days[0].toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} — ${days[6].toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`
+  const weekLabel = `${days[0].toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} — ${days[days.length - 1].toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`
 
   return (
     <>
@@ -150,51 +169,71 @@ export default function RoomScheduleTab({ showToast }) {
       ) : (
         <div className="room-schedule">
           <div className="room-schedule-grid">
-            <div className="room-schedule-corner" />
-            {days.map((d) => (
-              <div key={toDateKey(d)} className="room-schedule-day-header">
+            <div className="room-schedule-corner" style={{ gridRow: 1, gridColumn: 1 }} />
+            {days.map((d, dayIndex) => (
+              <div key={toDateKey(d)} className="room-schedule-day-header" style={{ gridRow: 1, gridColumn: dayIndex + 2 }}>
                 <span>{DAY_LABELS[d.getDay()]}</span>
                 <span className="room-schedule-day-date">{d.getDate()}</span>
               </div>
             ))}
 
             {HOURS.map((hour) => (
-              <Fragment key={hour}>
-                <div className="room-schedule-time-label">
-                  <span>{String(hour).padStart(2, '0')}:00</span>
-                </div>
+              <div key={`label-${hour}`} className="room-schedule-time-label" style={{ gridRow: hourRow(hour), gridColumn: 1 }}>
+                <span>{String(hour).padStart(2, '0')}:00</span>
+              </div>
+            ))}
 
-                {days.map((d) => {
-                  const dateKey = toDateKey(d)
-                  const booking = findBookingForHour(dateKey, hour)
-                  const isFree = !booking
-                  const isPeriod = booking && booking.period !== 'avulso'
+            {DIVIDER_ROWS.map((row) => (
+              <div key={`divider-${row}`} className="room-schedule-divider" style={{ gridRow: row, gridColumn: '1 / -1' }} />
+            ))}
 
+            {days.map((d, dayIndex) => {
+              const dateKey = toDateKey(d)
+
+              return HOURS.map((hour) => {
+                const booking = findBookingForHour(dateKey, hour)
+
+                if (!booking) {
                   return (
                     <button
                       type="button"
-                      key={`${hour}-${dateKey}`}
-                      className={`room-schedule-cell ${isFree ? 'is-free' : isPeriod ? 'is-period' : 'is-booked'}`}
+                      key={`${dateKey}-${hour}`}
+                      className="room-schedule-cell is-free"
+                      style={{ gridRow: hourRow(hour), gridColumn: dayIndex + 2 }}
                       onClick={() => handleCellClick(dateKey, hour)}
-                      title={
-                        booking
-                          ? `${isPeriod ? `Período (${PERIOD_LABELS[booking.period]})${booking.is_recurring ? ' — fixo' : ''}` : 'Avulso'} — ${booking.tenant?.name} — clique para ${booking.is_recurring ? 'liberar' : 'cancelar'}`
-                          : 'Livre — clique para reservar'
-                      }
+                      title="Livre — clique para reservar"
                     >
-                      {isFree ? (
-                        'Livre'
-                      ) : (
-                        <>
-                          <span className="room-schedule-cell-tag">{isPeriod ? 'Período' : 'Avulso'}</span>
-                          <span className="room-schedule-cell-name">{booking.tenant?.name ?? 'Reservado'}</span>
-                        </>
-                      )}
+                      Livre
                     </button>
                   )
-                })}
-              </Fragment>
-            ))}
+                }
+
+                // Só renderiza a reserva na hora em que ela começa — as horas
+                // seguintes do mesmo bloco já ficam cobertas pelo row-span
+                const startHour = hourOf(booking.start_time)
+                if (startHour !== hour) return null
+
+                const endHour = hourOf(booking.end_time)
+                const span = endHour - startHour
+                const isPeriod = booking.period !== 'avulso'
+
+                return (
+                  <button
+                    type="button"
+                    key={`${dateKey}-${hour}`}
+                    className={`room-schedule-cell ${isPeriod ? 'is-period' : 'is-booked'}${span > 1 ? ' is-merged' : ''}`}
+                    style={{ gridRow: `${hourRow(hour)} / span ${span}`, gridColumn: dayIndex + 2 }}
+                    onClick={() => handleCellClick(dateKey, hour)}
+                    title={
+                      `${isPeriod ? `Período (${PERIOD_LABELS[booking.period]})${booking.is_recurring ? ' — fixo' : ''}` : 'Avulso'} — ${booking.tenant?.name} — clique para ${booking.is_recurring ? 'liberar' : 'cancelar'}`
+                    }
+                  >
+                    <span className="room-schedule-cell-tag">{isPeriod ? 'Período' : 'Avulso'}</span>
+                    <span className="room-schedule-cell-name">{booking.tenant?.name ?? 'Reservado'}</span>
+                  </button>
+                )
+              })
+            })}
           </div>
 
           <div className="room-schedule-legend">
