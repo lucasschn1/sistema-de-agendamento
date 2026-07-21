@@ -14,13 +14,17 @@ Sistema de agendamento para clínicas de psicologia (psicólogos, psicopedagogos
 
 ## Capturas de tela
 
-| Dashboard | Financeiro |
-|---|---|
-| ![Dashboard](docs/screenshots/dashboard.gif) | ![Financeiro](docs/screenshots/financeiro.gif) |
+### Dashboard
+![Dashboard](docs/screenshots/dashboard.gif)
 
-| Agendamentos | Sublocação |
-|---|---|
-| ![Agendamentos](docs/screenshots/agendamentos.gif) | ![Sublocação](docs/screenshots/sublocacoes.png) |
+### Financeiro
+![Financeiro](docs/screenshots/financeiro.gif)
+
+### Agendamentos
+![Agendamentos](docs/screenshots/agendamentos.gif)
+
+### Sublocação
+![Sublocação](docs/screenshots/sublocacoes.png)
 
 ## Estrutura do repositório
 
