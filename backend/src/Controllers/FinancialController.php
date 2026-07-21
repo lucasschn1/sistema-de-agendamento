@@ -26,6 +26,8 @@ use App\Exceptions\financial\InvalidPaymentStatusException;
  *   GET   /api/financial/paid                 → paid()
  *   GET   /api/financial/paid/recent          → recentPaid()
  *   GET   /api/financial/methods              → paymentMethods()
+ *   GET   /api/financial/history/summary      → historySummary()
+ *   GET   /api/financial/history/payments     → historyList()
  */
 class FinancialController
 {
@@ -219,6 +221,8 @@ class FinancialController
     {
         try {
             $summary = $this->financialService->getCurrentMonthSummary();
+            $summary['all_time_received'] = $this->financialService->getAllTimeReceived();
+            $summary['received_today'] = $this->financialService->getReceivedToday();
             return Response::json($summary);
 
         } catch (\Throwable $e) {
@@ -359,5 +363,92 @@ class FinancialController
         return Response::json(
             $this->financialService->getAllowedPaymentMethods()
         );
+    }
+
+    // =========================================================
+    // HISTÓRICO DE PAGAMENTOS (por competência, com filtros combinados)
+    // =========================================================
+
+    private function historyFilters(Request $request): array
+    {
+        return [
+            'professional_id' => $request->query('professional_id') ?: null,
+            'patient_id'       => $request->query('patient_id') ?: null,
+            'service_id'       => $request->query('service_id') ?: null,
+            'method'           => $request->query('method') ?: null,
+            'search'           => $request->query('search') ?: null,
+        ];
+    }
+
+    /**
+     * GET /api/financial/history/summary
+     * Resumo de uma competência (mês/ano) com filtros opcionais combinados
+     *
+     * Query params:
+     *   ?year=2026&month=7
+     *   &professional_id=&patient_id=&service_id=&method=&search=
+     */
+    public function historySummary(Request $request): Response
+    {
+        try {
+            $year  = (int) $request->query('year', date('Y'));
+            $month = (int) $request->query('month', date('n'));
+
+            $summary = $this->financialService->getMonthlyHistorySummary(
+                $year,
+                $month,
+                $this->historyFilters($request)
+            );
+
+            return Response::json($summary);
+
+        } catch (ValidationException $e) {
+            return Response::validationError($e->getErrors());
+
+        } catch (\Throwable $e) {
+            return Response::serverError();
+        }
+    }
+
+    /**
+     * GET /api/financial/history/payments
+     * Listagem paginada de pagamentos de uma competência, com os mesmos
+     * filtros combinados de historySummary()
+     *
+     * Query params:
+     *   ?year=2026&month=7
+     *   &professional_id=&patient_id=&service_id=&method=&search=
+     *   &page=1&per_page=20
+     */
+    public function historyList(Request $request): Response
+    {
+        try {
+            $year    = (int) $request->query('year', date('Y'));
+            $month   = (int) $request->query('month', date('n'));
+            $page    = (int) $request->query('page', 1);
+            $perPage = (int) $request->query('per_page', 20);
+
+            $result = $this->financialService->getFilteredPaymentHistory(
+                $year,
+                $month,
+                $this->historyFilters($request),
+                $page,
+                $perPage
+            );
+
+            return Response::json([
+                'data'        => array_map(fn($apt) => $apt->toPublicArray(), $result['data']),
+                'page'        => $result['page'],
+                'per_page'    => $result['per_page'],
+                'total'       => $result['total'],
+                'total_pages' => $result['total_pages'],
+            ]);
+
+        } catch (ValidationException $e) {
+            return Response::validationError($e->getErrors());
+
+        } catch (\Throwable $e) {
+            return Response::serverError();
+        }
     }
 }

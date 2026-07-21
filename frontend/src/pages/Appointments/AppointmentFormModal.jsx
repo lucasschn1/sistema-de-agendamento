@@ -5,6 +5,22 @@ import { listProcedures } from '../../api/procedures'
 import { createAppointment, createRecurrence, checkAvailability } from '../../api/appointments'
 import { parseApiError, parseApiFieldErrors } from '../../utils/apiError'
 
+// Primeira data (>= start_date) que cai no dia da semana escolhido — é a data
+// usada pra checar disponibilidade da recorrência (só a 1ª sessão, ver useEffect abaixo)
+function firstOccurrenceDate(startDateStr, dayOfWeek) {
+  if (!startDateStr) return null
+
+  const [y, m, d] = startDateStr.split('-').map(Number)
+  const start = new Date(y, m - 1, d)
+  const diff = (dayOfWeek - start.getDay() + 7) % 7
+  start.setDate(start.getDate() + diff)
+
+  const yy = start.getFullYear()
+  const mm = String(start.getMonth() + 1).padStart(2, '0')
+  const dd = String(start.getDate()).padStart(2, '0')
+  return `${yy}-${mm}-${dd}`
+}
+
 const WEEKDAYS = [
   { value: 0, label: 'Domingo' },
   { value: 1, label: 'Segunda-feira' },
@@ -75,9 +91,17 @@ export default function AppointmentFormModal({ show, onClose, onCreated, default
       .finally(() => setLoadingOptions(false))
   }, [show, defaultDate])
 
-  // Checa disponibilidade em tempo real assim que profissional, data, horário e procedimento estão definidos
+  // Checa disponibilidade em tempo real assim que profissional, horário e procedimento
+  // estão definidos. Pra recorrência, checa só a primeira sessão gerada — não cobre
+  // conflitos em datas futuras da série, só dá um indicativo inicial rápido
   useEffect(() => {
-    if (!show || isRecurring || !professionalId || !date || !time || !serviceId) {
+    if (!show || !professionalId || !time || !serviceId) {
+      setAvailability(null)
+      return
+    }
+
+    const checkDate = isRecurring ? firstOccurrenceDate(startDate, Number(dayOfWeek)) : date
+    if (!checkDate) {
       setAvailability(null)
       return
     }
@@ -90,7 +114,7 @@ export default function AppointmentFormModal({ show, onClose, onCreated, default
     const timer = setTimeout(() => {
       checkAvailability({
         professional_id: professionalId,
-        date: `${date} ${time}:00`,
+        date: `${checkDate} ${time}:00`,
         duration: service.duration_minutes,
       })
         .then((result) => setAvailability(result.available ? 'available' : 'unavailable'))
@@ -98,7 +122,7 @@ export default function AppointmentFormModal({ show, onClose, onCreated, default
     }, 400)
 
     return () => clearTimeout(timer)
-  }, [show, isRecurring, professionalId, date, time, serviceId, procedures])
+  }, [show, isRecurring, professionalId, date, time, serviceId, procedures, startDate, dayOfWeek])
 
   // Sugere o valor do procedimento como ponto de partida, mas o valor final do
   // agendamento é sempre editável e independente — só preenche se ainda estiver vazio
@@ -244,7 +268,7 @@ export default function AppointmentFormModal({ show, onClose, onCreated, default
               />
 
               {isRecurring ? (
-                <>
+                <div className="recurrence-fields-panel">
                   <Row>
                     <Col>
                       <Form.Group className="mb-3">
@@ -299,7 +323,7 @@ export default function AppointmentFormModal({ show, onClose, onCreated, default
                     </Col>
                   </Row>
 
-                  <Form.Group className="mb-3">
+                  <Form.Group className="mb-0">
                     <Form.Label>Horário</Form.Label>
                     <Form.Control
                       type="time"
@@ -308,45 +332,63 @@ export default function AppointmentFormModal({ show, onClose, onCreated, default
                       required
                     />
                   </Form.Group>
-                </>
-              ) : (
-                <Row>
-                  <Col>
-                    <Form.Group className="mb-3">
-                      <Form.Label>Data</Form.Label>
-                      <Form.Control
-                        type="date"
-                        value={date}
-                        onChange={(e) => setDate(e.target.value)}
-                        required
-                      />
-                    </Form.Group>
-                  </Col>
-                  <Col>
-                    <Form.Group className="mb-3">
-                      <Form.Label>Horário</Form.Label>
-                      <Form.Control
-                        type="time"
-                        value={time}
-                        onChange={(e) => setTime(e.target.value)}
-                        required
-                      />
-                    </Form.Group>
-                  </Col>
-                </Row>
-              )}
 
-              {!isRecurring && availability && (
-                <div className={`availability-hint availability-${availability} mb-3`}>
-                  {availability === 'checking' && (
-                    <>
-                      <Spinner animation="border" size="sm" className="me-2" />
-                      Checando disponibilidade...
-                    </>
+                  {availability && (
+                    <div className={`availability-hint availability-${availability} mt-3 mb-0`}>
+                      {availability === 'checking' && (
+                        <>
+                          <Spinner animation="border" size="sm" className="me-2" />
+                          Checando disponibilidade...
+                        </>
+                      )}
+                      {availability === 'available' && '✓ Horário disponível na primeira sessão'}
+                      {availability === 'unavailable' && '✕ Horário indisponível na primeira sessão — verifique o profissional'}
+                    </div>
                   )}
-                  {availability === 'available' && '✓ Horário disponível'}
-                  {availability === 'unavailable' && '✕ Horário indisponível para este profissional'}
+                  <div className="form-text mt-2 mb-0">
+                    Checagem só da primeira sessão — conflitos em datas futuras da série só aparecem ao salvar.
+                  </div>
                 </div>
+              ) : (
+                <>
+                  <Row>
+                    <Col>
+                      <Form.Group className="mb-3">
+                        <Form.Label>Data</Form.Label>
+                        <Form.Control
+                          type="date"
+                          value={date}
+                          onChange={(e) => setDate(e.target.value)}
+                          required
+                        />
+                      </Form.Group>
+                    </Col>
+                    <Col>
+                      <Form.Group className="mb-3">
+                        <Form.Label>Horário</Form.Label>
+                        <Form.Control
+                          type="time"
+                          value={time}
+                          onChange={(e) => setTime(e.target.value)}
+                          required
+                        />
+                      </Form.Group>
+                    </Col>
+                  </Row>
+
+                  {availability && (
+                    <div className={`availability-hint availability-${availability} mb-3`}>
+                      {availability === 'checking' && (
+                        <>
+                          <Spinner animation="border" size="sm" className="me-2" />
+                          Checando disponibilidade...
+                        </>
+                      )}
+                      {availability === 'available' && '✓ Horário disponível'}
+                      {availability === 'unavailable' && '✕ Horário indisponível para este profissional'}
+                    </div>
+                  )}
+                </>
               )}
 
               <Form.Group>

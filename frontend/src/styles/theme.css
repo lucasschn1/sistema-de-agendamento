@@ -171,96 +171,166 @@ body {
   height: 100vh;
   box-shadow: 4px 0 24px rgba(184, 116, 148, 0.15);
   z-index: 100;
+  position: relative;
 }
 
+/* Cabeçalho — leve overlay escuro para diferenciar essa faixa do resto
+   da sidebar, criando profundidade sem introduzir uma cor nova */
 .sidebar-logo {
-  padding: 28px 24px 20px;
+  padding: 30px 24px 22px;
+  margin-bottom: 4px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0));
   border-bottom: 1px solid var(--sidebar-border);
 }
 
 .sidebar-logo-title {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 21px;
+  font-weight: 800;
   color: #ffffff;
   margin: 0;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .sidebar-logo-subtitle {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--sidebar-text-muted);
-  margin: 4px 0 0;
+  margin: 6px 0 0;
   font-weight: 500;
+  letter-spacing: 0.03em;
 }
 
 .sidebar-nav {
   flex: 1;
-  padding: 16px 12px;
+  padding: 20px 14px;
   overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Cada grupo (Geral / Admin / Sublocação) — a borda superior discreta
+   funciona como divisor visual entre categorias, exceto na primeira */
+.sidebar-section + .sidebar-section {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--sidebar-border);
 }
 
 .sidebar-section-label {
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--sidebar-text-muted);
-  padding: 16px 12px 8px;
+  padding: 0 10px 10px;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-weight: 600;
+  letter-spacing: 0.12em;
+  font-weight: 700;
 }
 
 .sidebar-link {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 14px;
+  padding: 11px 14px;
   border-radius: var(--radius);
   color: var(--sidebar-text);
   text-decoration: none;
   font-size: 14px;
   font-weight: 500;
-  margin-bottom: 4px;
-  transition: var(--transition);
+  margin-bottom: 6px;
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
   cursor: pointer;
   border: none;
   background: transparent;
   width: 100%;
   text-align: left;
+  position: relative;
 }
 
 .sidebar-link:hover {
   background-color: var(--sidebar-hover-bg);
   color: #ffffff;
-  transform: translateX(4px);
+  transform: translateX(3px);
 }
 
+.sidebar-link:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 2px;
+}
+
+/* Item ativo — "elevado" com leve blur e brilho interno, mais indicador
+   lateral na cor de marca, em vez de só trocar o fundo */
 .sidebar-link.active {
   background-color: var(--sidebar-active-bg);
   color: var(--sidebar-active-text);
   font-weight: 600;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  animation: sidebarActiveIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-link.active::before {
+  content: '';
+  position: absolute;
+  left: -14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 60%;
+  border-radius: var(--radius-pill);
+  background: #ffffff;
+}
+
+@keyframes sidebarActiveIn {
+  from { opacity: 0.6; transform: scale(0.97); }
+  to   { opacity: 1;   transform: scale(1); }
+}
+
+.sidebar-link-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
 }
 
 .sidebar-link svg {
   width: 20px;
   height: 20px;
   flex-shrink: 0;
-  opacity: 0.9;
+  opacity: 0.85;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
+.sidebar-link:hover svg {
+  opacity: 1;
+}
+
+.sidebar-link.active svg {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+/* Rodapé — separado do restante da navegação com um painel levemente
+   mais escuro e uma linha de brilho no topo, reforçando a divisão */
 .sidebar-user {
   padding: 16px 20px;
   border-top: 1px solid var(--sidebar-border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
   gap: 12px;
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.sidebar-user-info {
+  flex: 1;
+  min-width: 0;
 }
 
 .sidebar-avatar {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.25);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.15));
+  border: 2px solid rgba(255, 255, 255, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -268,12 +338,12 @@ body {
   font-weight: 700;
   color: #ffffff;
   flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
 .sidebar-user-name {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 14.5px;
+  font-weight: 700;
   color: #ffffff;
   white-space: nowrap;
   overflow: hidden;
@@ -282,9 +352,9 @@ body {
 }
 
 .sidebar-user-role {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--sidebar-text-muted);
-  margin: 0;
+  margin: 2px 0 0;
 }
 
 .sidebar-logout {
@@ -296,14 +366,19 @@ body {
   display: flex;
   align-items: center;
   border-radius: var(--radius);
-  transition: var(--transition);
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.15s ease;
   margin-left: auto;
   flex-shrink: 0;
 }
 
 .sidebar-logout:hover {
   color: #ffffff;
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
+}
+
+.sidebar-logout:active {
+  transform: translateY(0);
 }
 
 .sidebar-close {
@@ -437,18 +512,43 @@ body {
    CARDS DE ESTATÍSTICA
    ============================================= */
 
+/* Envolve o stat-card num link (Agendamentos/Financeiro) sem herdar o
+   estilo padrão de link do navegador — o hover/sombra já vem do próprio
+   .stat-card, então aqui só neutralizamos cor/sublinhado */
+.stat-card-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.stat-card-link:hover {
+  color: inherit;
+  text-decoration: none;
+}
+
+.stat-card-link .stat-card {
+  cursor: pointer;
+}
+
+/* Hover contido, estilo Vercel/Linear — só a borda destaca (sem levantar o
+   card nem sombra grande). Passa mais "ferramenta" que "cartão de app" */
 .stat-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 128px;
+  min-width: 0;
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: var(--radius-lg);
-  padding: 24px;
+  padding: 20px 24px;
   box-shadow: var(--shadow-sm);
-  transition: var(--transition);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-hover);
+  border-color: var(--brand);
+  box-shadow: var(--shadow-md);
 }
 
 .stat-card-icon {
@@ -472,21 +572,30 @@ body {
 .stat-card-icon-brand   { background: var(--brand-light);        color: var(--brand); }
 
 .stat-card-label {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text-muted);
   margin-bottom: 8px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  line-height: 1.35;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
+/* Neutro por padrão — a cor da marca fica reservada pro que é genuinamente
+   interativo (botões, nav ativo), não pra todo número na tela. Só os
+   valores com significado real (bom/ruim) ganham cor via .success/.warning */
 .stat-card-value {
   font-size: 32px;
   font-weight: 700;
-  color: var(--brand);
+  color: var(--text-primary);
   margin-bottom: 4px;
-  line-height: 1;
+  line-height: 1.15;
   letter-spacing: -0.02em;
+  overflow-wrap: normal;
+  word-break: normal;
+  white-space: normal;
 }
 
 .stat-card-value.success { color: var(--color-success); }
@@ -497,25 +606,133 @@ body {
   font-size: 13px;
   color: var(--text-secondary);
   font-weight: 500;
+  line-height: 1.35;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+/* Grid compartilhado pelos KPIs do Financeiro (Resumo e Histórico) — mesma
+   definição nos dois lugares garante alturas, larguras e comportamento
+   responsivo idênticos entre as duas seções */
+.financial-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(196px, 1fr));
+  gap: 16px;
+  align-items: stretch;
+}
+
+/* Os KPIs do Financeiro cabem mais por linha que os do Dashboard, então o
+   valor precisa de um tamanho mais contido para nunca quebrar um número
+   monetário no meio (ex.: "R$ 1.620,00" virando "R$ 1.620,0" + "0") */
+.financial-kpi-grid .stat-card-value {
+  font-size: 22px;
+}
+
+/* Sparkline discreta embutida no stat-card (estilo Stripe) — usa a cor da
+   marca de propósito: ao contrário do número (neutro), uma tendência é
+   sinal de verdade e pode usar cor com moderação */
+.stat-card-sparkline {
+  display: block;
+  width: 72px;
+  height: 22px;
+  margin-top: 6px;
+  color: var(--brand);
+  opacity: 0.85;
+}
+
+/* Sub-cabeçalhos que agrupam a agenda do dia por "em aberto" / "concluídos"
+   (estilo Linear) — só aparecem quando os dois grupos coexistem */
+.dashboard-agenda-subheader {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 4px 4px 8px;
+}
+
+.dashboard-agenda-subheader:not(:first-child) {
+  margin-top: 12px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--border-color);
+}
+
+/* Indicador "atualizado há X" + atualizar manual (estilo status de deploy
+   da Vercel) — botão discreto, texto sobe de tom só no hover */
+.dashboard-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: none;
+  padding: 4px 8px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.dashboard-refresh-btn:hover:not(:disabled) {
+  color: var(--text-secondary);
+  background: var(--content-bg);
+}
+
+.dashboard-refresh-btn:disabled {
+  cursor: default;
+}
+
+.dashboard-refresh-btn .is-spinning {
+  display: inline-flex;
+  animation: dashboardRefreshSpin 0.8s linear infinite;
+}
+
+@keyframes dashboardRefreshSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 
 /* =============================================
    AGENDAMENTOS — CALENDÁRIO
    ============================================= */
 
+/* A toolbar é parte do fluxo normal da página em ambas as visões — rola
+   junto com o conteúdo (Mensal: some atrás do calendário; Semanal: some e
+   deixa só o cabeçalho de dias grudado, ver .week-calendar-header-sticky).
+   Não é mais sticky: depois de configurar os filtros, o foco passa a ser
+   o calendário/a grade, não a barra de filtros. */
 .appointments-toolbar {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: 12px;
+  align-items: flex-end;
+  gap: 20px;
   margin-bottom: 24px;
   flex-wrap: wrap;
 }
 
 .appointments-filters {
   display: flex;
-  gap: 16px;
+  gap: 24px;
   flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+/* Cada grupo de filtro (Profissionais, Status) tem seu próprio rótulo
+   discreto acima — separa visualmente os grupos em vez de uma única
+   sequência corrida de chips */
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filter-group-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  padding-left: 2px;
 }
 
 .filter-chip-group {
@@ -564,6 +781,131 @@ body {
 .filter-chip-dot.status-completed { background: var(--text-secondary); }
 .filter-chip-dot.status-cancelled { background: var(--color-danger); }
 .filter-chip-dot.status-no-show   { background: var(--color-warning); }
+
+/* A barra de Agendamentos usa uma versão mais compacta e refinada dos
+   chips acima — escopada aqui pra não afetar Rentals/Financial, que
+   reaproveitam as mesmas classes-base .filter-chip/.filter-chip-group */
+.appointments-toolbar .filter-chip {
+  border-color: var(--border-color);
+  background: var(--content-bg);
+  font-size: 12.5px;
+  line-height: 1;
+  padding: 5px 12px;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.appointments-toolbar .filter-chip:hover {
+  transform: translateY(-1px);
+}
+
+.appointments-toolbar .filter-chip:active {
+  transform: translateY(0);
+}
+
+.appointments-toolbar .filter-chip:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.appointments-toolbar .filter-chip.active {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(214, 147, 176, 0.35);
+}
+
+.appointments-toolbar .filter-chip.active:hover {
+  background: var(--brand-dark);
+  border-color: var(--brand-dark);
+}
+
+.appointments-toolbar .filter-chip-dot {
+  width: 7px;
+  height: 7px;
+}
+
+/* Ações à direita da barra: alternador de visualização + ação principal,
+   agrupadas para não competir com os filtros à esquerda */
+.appointments-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+/* Alternador Agenda/Semana — controle segmentado único, com um "thumb"
+   que desliza suavemente entre as duas opções (igual apps modernos) */
+.view-switch {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  background: var(--content-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
+  padding: 3px;
+  min-width: 176px;
+}
+
+.view-switch-thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc(50% - 3px);
+  background: var(--brand);
+  border-radius: var(--radius-pill);
+  box-shadow: 0 2px 8px rgba(214, 147, 176, 0.35);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.view-switch.is-week .view-switch-thumb {
+  transform: translateX(100%);
+}
+
+.view-switch-option {
+  position: relative;
+  z-index: 1;
+  border: none;
+  background: transparent;
+  padding: 6px 16px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.view-switch-option:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.view-switch-option.active {
+  color: #ffffff;
+}
+
+/* Ação principal — mais refinada que o .btn-primary genérico usado no
+   resto do app: menor altura, sombra mais discreta, ícone alinhado */
+.appointments-new-btn.btn.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px !important;
+  font-size: 13.5px;
+  border-radius: var(--radius-pill) !important;
+  box-shadow: 0 2px 6px rgba(214, 147, 176, 0.25) !important;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease !important;
+}
+
+.appointments-new-btn.btn.btn-primary:hover {
+  box-shadow: 0 4px 14px rgba(214, 147, 176, 0.35) !important;
+}
+
+.appointments-new-btn.btn.btn-primary:active {
+  transform: translateY(1px) !important;
+  box-shadow: 0 1px 4px rgba(214, 147, 176, 0.3) !important;
+}
 
 .appointments-layout {
   display: flex;
@@ -883,6 +1225,30 @@ body {
   vertical-align: middle;
 }
 
+/* Selo de horário relativo (ex: "em 40 min", "Agora") — só no próximo
+   compromisso do dia, estilo Apple/Google Calendar */
+.appointment-card-time-badge {
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(59, 130, 246, 0.12);
+  color: var(--color-info);
+  vertical-align: middle;
+}
+
+.appointment-card-time-badge.is-now {
+  background: rgba(16, 185, 129, 0.14);
+  color: var(--color-success);
+  animation: timeBadgePulse 2s ease-in-out infinite;
+}
+
+@keyframes timeBadgePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
 .appointment-card-detail {
   margin: 4px 0 0;
   font-size: 13px;
@@ -927,6 +1293,67 @@ body {
   justify-content: center;
   width: 32px;
   padding: 0;
+}
+
+/* =============================================
+   MODAL DE EXCLUSÃO DE AGENDAMENTO — opções de escopo
+   (este / este e futuros / todos, para recorrências)
+   ============================================= */
+
+.delete-scope-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.delete-scope-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.delete-scope-option:hover {
+  border-color: var(--brand);
+}
+
+.delete-scope-option.is-selected {
+  border-color: var(--brand);
+  background: rgba(214, 147, 176, 0.08);
+}
+
+.delete-scope-option.is-destructive.is-selected {
+  border-color: var(--color-danger);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.delete-scope-option input[type='radio'] {
+  margin-top: 3px;
+  accent-color: var(--brand);
+  flex-shrink: 0;
+}
+
+.delete-scope-option.is-destructive input[type='radio'] {
+  accent-color: var(--color-danger);
+}
+
+.delete-scope-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.delete-scope-option.is-destructive .delete-scope-option-text strong {
+  color: var(--color-danger);
+}
+
+.delete-scope-option-desc {
+  font-size: 0.85rem;
+  color: var(--text-muted);
 }
 
 /* =============================================
@@ -1095,19 +1522,46 @@ body {
   position: relative;
 }
 
-.week-calendar-scroll {
+/* Cabeçalho (dias da semana) e corpo (grade de horários) são DOIS elementos
+   de scroll horizontal separados, sincronizados via JS (WeekCalendar.jsx,
+   handleBodyScroll) — só assim o cabeçalho consegue ser sticky relativo ao
+   scroll real da página (.app-main), sem precisar de uma "viewport" vertical
+   interna: qualquer elemento com overflow-x:auto e altura ilimitada acaba,
+   por regra do CSS, computando overflow-y como auto também, o que faz filhos
+   sticky grudarem nele em vez de na página. Ter dois elementos evita esse
+   problema por completo: o cabeçalho nunca precisa de overflow próprio no
+   eixo vertical, e o corpo nunca precisa ficar sticky. */
+.week-calendar-header-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-bottom: none;
+  border-top-left-radius: var(--radius-lg);
+  border-top-right-radius: var(--radius-lg);
+  box-shadow: 0 2px 6px rgba(45, 26, 35, 0.06);
+}
+
+/* overflow:hidden (não auto) — não é interativo, só recorta a faixa do
+   cabeçalho no ponto certo; o scrollLeft é setado via JS espelhando o corpo */
+.week-calendar-header-scroll {
+  overflow: hidden;
+}
+
+.week-calendar-body-scroll {
   overflow-x: auto;
   background: var(--card-bg);
   border: 1px solid var(--card-border);
-  border-radius: var(--radius-lg);
+  border-top: none;
+  border-bottom-left-radius: var(--radius-lg);
+  border-bottom-right-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
 }
 
 .week-calendar-grid {
   display: grid;
-  grid-template-columns: 72px repeat(7, minmax(150px, 1fr));
-  gap: 1px;
-  background: var(--border-color);
+  grid-template-columns: 56px repeat(7, minmax(150px, 1fr));
   min-width: 820px;
 }
 
@@ -1128,6 +1582,8 @@ body {
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border-color);
+  border-left: 1px solid var(--border-color);
 }
 
 .week-calendar-day-header.is-today {
@@ -1147,72 +1603,98 @@ body {
   color: var(--brand-darker);
 }
 
-.week-calendar-time-label {
+/* Coluna da esquerda com os rótulos de hora — cada linha tem exatamente
+   HOUR_HEIGHT (ver WeekCalendar.jsx) para alinhar pixel a pixel com as
+   linhas da grade nas colunas dos dias */
+.week-calendar-time-col {
   background: var(--card-bg);
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-end;
-  padding: 4px 8px;
-  font-size: 12px;
+}
+
+.week-calendar-time-label {
+  display: block;
+  padding: 2px 8px 0 0;
+  font-size: 11px;
   font-weight: 600;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
-.week-calendar-cell {
+/* Coluna de um dia — altura total = número de linhas × HOUR_HEIGHT.
+   As linhas de hora (.week-calendar-hour-row) só desenham a grade; os
+   agendamentos (.week-calendar-appointment) flutuam por cima delas com
+   position: absolute, posicionados pelo horário exato via inline style */
+.week-calendar-day-col {
+  position: relative;
   background: var(--content-bg);
-  padding: 3px;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+  border-left: 1px solid var(--border-color);
+}
+
+.week-calendar-day-col.is-today {
+  background: var(--brand-light);
+}
+
+.week-calendar-hour-row {
+  height: 64px; /* mantido em sincronia com HOUR_HEIGHT em WeekCalendar.jsx */
+  border-bottom: 1px solid var(--border-color);
+  box-sizing: border-box;
 }
 
 .week-calendar-appointment {
+  position: absolute;
+  z-index: 1;
+  box-sizing: border-box;
   border-radius: var(--radius);
-  padding: 6px 8px;
-  font-size: 11.5px;
-  line-height: 1.35;
+  border-left: 3px solid transparent;
+  padding: 3px 7px;
+  font-size: 11px;
+  line-height: 1.3;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 0;
+  overflow: hidden;
   box-shadow: var(--shadow-sm);
   cursor: pointer;
-  transition: var(--transition);
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+/* Faixa lateral colorida = identifica o profissional (só aparece quando há
+   mais de um profissional na semana — ver showProfessionalIdentity no JSX) */
+.week-calendar-appointment.has-professional-color {
+  border-left-color: var(--prof-color);
+  padding-right: 22px; /* espaço reservado pro avatar de iniciais no canto */
+}
+
+.week-calendar-appointment-avatar {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1;
 }
 
 .week-calendar-appointment:hover {
-  transform: translateY(-1px);
+  z-index: 2;
   box-shadow: var(--shadow-hover);
 }
 
 .week-calendar-appointment.is-expanded {
+  z-index: 2;
   box-shadow: 0 0 0 2px var(--brand);
-}
-
-.week-calendar-appointment-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 2px;
-}
-
-.week-calendar-appointment-time {
-  font-weight: 700;
-  font-size: 11.5px;
-}
-
-.week-calendar-appointment-status {
-  font-size: 9.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  opacity: 0.85;
 }
 
 .week-calendar-appointment-patient {
   margin: 0;
   font-weight: 700;
-  font-size: 12.5px;
+  font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1224,6 +1706,57 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.week-calendar-appointment-time {
+  margin: 0;
+  margin-top: auto;
+  font-weight: 600;
+  font-size: 10.5px;
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Cards curtos (< COMPACT_HEIGHT_THRESHOLD) escondem o procedimento;
+   cards minúsculos (< TINY_HEIGHT_THRESHOLD) mostram só uma linha */
+.week-calendar-appointment.is-compact {
+  padding: 2px 6px;
+  gap: 0;
+}
+
+.week-calendar-appointment.is-compact.has-professional-color {
+  padding-right: 20px;
+}
+
+.week-calendar-appointment.is-compact .week-calendar-appointment-time {
+  margin-top: 0;
+}
+
+/* Linha do horário atual — só aparece na coluna de hoje, na altura exata
+   das horas:minutos correntes; atualiza a cada minuto (ver WeekCalendar.jsx) */
+.week-calendar-now-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  height: 0;
+  border-top: 2px solid var(--color-danger);
+  pointer-events: none;
+}
+
+.week-calendar-now-line::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-danger);
+  transform: translateY(-50%);
 }
 
 /* =============================================
@@ -1292,6 +1825,21 @@ body {
   padding: 10px 14px;
   border-radius: var(--radius);
   margin-top: -8px;
+}
+
+/* Painel que agrupa visualmente os campos que aparecem quando o switch
+   "Agendamento recorrente" é ligado — deixa claro que é um bloco à parte
+   do restante do formulário, que muda junto quando o switch é alternado */
+.recurrence-fields-panel {
+  background: var(--brand-light);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 16px 16px 4px;
+  margin-bottom: 16px;
+}
+
+.recurrence-fields-panel .form-text {
+  font-size: 12px;
 }
 
 .availability-hint.availability-checking {
@@ -1673,6 +2221,7 @@ body {
   color: var(--text-secondary);
 }
 
+
 .birthday-banner {
   background: var(--brand-light);
   color: var(--brand-darker);
@@ -1680,6 +2229,13 @@ body {
   padding: 12px 18px;
   font-size: 14px;
   font-weight: 500;
+}
+
+.birthday-banner-soon {
+  margin-top: 4px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
 }
 
 /* =============================================
@@ -1958,6 +2514,82 @@ a:hover {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
   gap: 20px;
+}
+
+/* =============================================
+   FINANCEIRO — FLUXO, HISTÓRICO E FILTROS
+   ============================================= */
+
+.financial-flow-widget {
+  margin-top: 4px;
+}
+
+.financial-flow-bar {
+  display: flex;
+  width: 100%;
+  height: 12px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--content-bg);
+  border: 1px solid var(--card-border);
+}
+
+.financial-flow-segment {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.financial-flow-segment.is-recebido {
+  background: var(--color-success);
+}
+
+.financial-flow-segment.is-aguardando {
+  background: var(--color-warning);
+}
+
+.financial-flow-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.financial-flow-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.financial-flow-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.financial-flow-legend-dot.is-recebido    { background: var(--color-success); }
+.financial-flow-legend-dot.is-aguardando  { background: var(--color-warning); }
+.financial-flow-legend-dot.is-previsto    { background: var(--card-border); }
+
+.financial-history-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.financial-history-filters {
+  align-items: center;
+}
+
+.pending-session-row {
+  box-shadow: inset 3px 0 0 var(--color-warning);
+}
+
+.history-row-actions-toggle::after {
+  display: none;
 }
 
 /* =============================================

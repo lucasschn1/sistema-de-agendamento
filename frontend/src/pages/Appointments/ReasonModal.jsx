@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Modal, Form, Button, Spinner } from 'react-bootstrap'
 
 // =============================================
-// MODAL — PEDE UM MOTIVO (cancelamento / falta)
+// MODAL — PEDE UM MOTIVO (marcar falta)
 // =============================================
 
 export default function ReasonModal({ show, title, required, onClose, onConfirm }) {

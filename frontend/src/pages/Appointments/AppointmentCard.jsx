@@ -18,8 +18,8 @@ export function TrashIcon() {
 // =============================================
 
 export default function AppointmentCard({
-  appointment: apt, isExpanded, onToggle,
-  onEdit, onConfirm, onComplete, onCancel, onNoShow, onCancelRecurrence, onDelete,
+  appointment: apt, isExpanded, onToggle, timeBadge,
+  onEdit, onConfirm, onComplete, onNoShow, onDelete,
 }) {
   const handleToggle = () => onToggle(apt.id)
 
@@ -39,6 +39,11 @@ export default function AppointmentCard({
           <p className="appointment-card-patient">
             {apt.patient?.name}
             {apt.is_recurring && <span className="appointment-card-recurring-badge">Recorrente</span>}
+            {timeBadge && (
+              <span className={`appointment-card-time-badge${timeBadge === 'Agora' ? ' is-now' : ''}`}>
+                {timeBadge}
+              </span>
+            )}
           </p>
           <p className="appointment-card-detail">{apt.service?.name} · {apt.professional?.name}</p>
           <p className="appointment-card-price">{apt.formatted_price}</p>
@@ -58,9 +63,7 @@ export default function AppointmentCard({
             onEdit={onEdit}
             onConfirm={onConfirm}
             onComplete={onComplete}
-            onCancel={onCancel}
             onNoShow={onNoShow}
-            onCancelRecurrence={onCancelRecurrence}
             onDelete={onDelete}
           />
         )}

@@ -7,7 +7,7 @@ const MONTH_NAMES = [
 ]
 
 // Ordem fixa de exibição dos pontos de status em cada dia
-const STATUS_ORDER = ['scheduled', 'confirmed', 'completed', 'no_show', 'cancelled']
+const STATUS_ORDER = ['scheduled', 'confirmed', 'completed', 'no_show']
 
 function toDateKey(date) {
   const y = date.getFullYear()

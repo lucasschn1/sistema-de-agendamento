@@ -20,7 +20,6 @@ use App\Exceptions\procedure\ProcedureNotFoundException;
 
 use App\Exceptions\appointment\AppointmentConflictException;
 use App\Exceptions\appointment\AppointmentNotFoundException;
-use App\Exceptions\appointment\PastAppointmentException;
 use App\Exceptions\appointment\NoShowTimeException;
 use App\Exceptions\appointment\RecurrenceLimitExceededException;
 
@@ -147,7 +146,9 @@ class AppointmentServiceTest extends TestCase
         int $id = 10,
         string $status = 'scheduled',
         bool $isFuture = true,
-        bool $isPast = false
+        bool $isPast = false,
+        ?int $recurrenceGroupId = null,
+        ?DateTime $startTime = null
     ): MockObject {
         $mock = $this->createMock(Appointment::class);
         $mock->method('getId')->willReturn($id);
@@ -160,7 +161,9 @@ class AppointmentServiceTest extends TestCase
         $mock->method('isCancelled')->willReturn($status === 'cancelled');
         $mock->method('isNoShow')->willReturn($status === 'no_show');
         $mock->method('isPending')->willReturn(in_array($status, ['scheduled', 'confirmed']));
-        $mock->method('canBeCancelled')->willReturn(in_array($status, ['scheduled', 'confirmed']));
+        $mock->method('isRecurring')->willReturn($recurrenceGroupId !== null);
+        $mock->method('getRecurrenceGroupId')->willReturn($recurrenceGroupId);
+        $mock->method('getStartTime')->willReturn($startTime ?? new DateTime('+1 day'));
         $mock->method('toArray')->willReturn([
             'id'               => $id,
             'patient_id'       => 1,
@@ -629,154 +632,6 @@ class AppointmentServiceTest extends TestCase
 
 
     // =========================================================
-    // TESTES — cancelAppointment()
-    // =========================================================
-
-    public function testCancelAppointmentSuccessfully(): void
-    {
-        $appointment = $this->makeAppointment(10, 'scheduled', true, false);
-
-        $this->appointmentRepositoryMock
-            ->method('findById')
-            ->willReturn($appointment);
-
-        $this->appointmentRepositoryMock
-            ->expects($this->once())
-            ->method('cancel')
-            ->willReturn(true);
-
-        $result = $this->service->cancelAppointment(10, 'Motivo de teste');
-        $this->assertTrue($result);
-    }
-
-    public function testCancelAppointmentThrowsIfNotFound(): void
-    {
-        $this->expectException(AppointmentNotFoundException::class);
-
-        $this->appointmentRepositoryMock
-            ->method('findById')
-            ->willReturn(null);
-
-        $this->service->cancelAppointment(99, 'Motivo');
-    }
-
-    public function testCancelAppointmentThrowsIfPastAndNotAdmin(): void
-    {
-        $this->expectException(PastAppointmentException::class);
-
-        // Agendamento passado
-        $appointment = $this->makeAppointment(10, 'scheduled', false, true);
-
-        $this->appointmentRepositoryMock
-            ->method('findById')
-            ->willReturn($appointment);
-
-        // isAdmin = false (padrão)
-        $this->service->cancelAppointment(10, 'Motivo', false);
-    }
-
-    public function testCancelPastAppointmentAllowedForAdmin(): void
-    {
-        // Agendamento passado, mas admin pode cancelar
-        $appointment = $this->makeAppointment(10, 'scheduled', false, true);
-
-        $this->appointmentRepositoryMock
-            ->method('findById')
-            ->willReturn($appointment);
-
-        $this->appointmentRepositoryMock
-            ->method('cancel')
-            ->willReturn(true);
-
-        // isAdmin = true
-        $result = $this->service->cancelAppointment(10, 'Correção administrativa', true);
-        $this->assertTrue($result);
-    }
-
-    public function testCancelAppointmentThrowsIfStatusDoesNotAllowCancellation(): void
-    {
-        $this->expectException(DomainException::class);
-
-        // Agendamento já completado — não pode cancelar
-        $appointment = $this->makeAppointment(10, 'completed', false, true);
-        $appointment->method('canBeCancelled')->willReturn(false);
-
-        $this->appointmentRepositoryMock
-            ->method('findById')
-            ->willReturn($appointment);
-
-        $this->service->cancelAppointment(10, 'Motivo', true);
-    }
-
-
-    // =========================================================
-    // TESTES — cancelRecurrence()
-    // =========================================================
-
-    public function testCancelRecurrenceSuccessfully(): void
-    {
-        $appointments = [$this->makeAppointment(1), $this->makeAppointment(2)];
-
-        $this->appointmentRepositoryMock
-            ->method('findByRecurrenceGroup')
-            ->willReturn($appointments);
-
-        $this->appointmentRepositoryMock
-            ->expects($this->once())
-            ->method('cancelRecurrence')
-            ->willReturn(2);
-
-        $cancelled = $this->service->cancelRecurrence(5, 'Encerramento do tratamento');
-        $this->assertEquals(2, $cancelled);
-    }
-
-    public function testCancelRecurrenceThrowsIfGroupNotFound(): void
-    {
-        $this->expectException(AppointmentNotFoundException::class);
-
-        $this->appointmentRepositoryMock
-            ->method('findByRecurrenceGroup')
-            ->willReturn([]); // Grupo vazio
-
-        $this->service->cancelRecurrence(99, 'Motivo');
-    }
-
-    public function testCancelRecurrenceThrowsIfFromDateIsPastAndNotAdmin(): void
-    {
-        $this->expectException(PastAppointmentException::class);
-
-        $this->service->cancelRecurrence(
-            recurrenceGroupId: 5,
-            reason: 'Motivo',
-            fromDate: new DateTime('-1 day'), // Data passada
-            isAdmin: false
-        );
-    }
-
-    public function testCancelRecurrenceFromPastDateAllowedForAdmin(): void
-    {
-        $appointments = [$this->makeAppointment(1)];
-
-        $this->appointmentRepositoryMock
-            ->method('findByRecurrenceGroup')
-            ->willReturn($appointments);
-
-        $this->appointmentRepositoryMock
-            ->method('cancelRecurrence')
-            ->willReturn(1);
-
-        $cancelled = $this->service->cancelRecurrence(
-            recurrenceGroupId: 5,
-            reason: 'Correção',
-            fromDate: new DateTime('-1 day'),
-            isAdmin: true
-        );
-
-        $this->assertEquals(1, $cancelled);
-    }
-
-
-    // =========================================================
     // TESTES — markAsNoShow()
     // =========================================================
 
@@ -1062,7 +917,7 @@ class AppointmentServiceTest extends TestCase
             ->willReturn(true);
 
         $result = $this->service->deleteAppointment(10);
-        $this->assertTrue($result);
+        $this->assertEquals(1, $result);
     }
 
     public function testDeleteAppointmentThrowsIfNotFound(): void
@@ -1074,6 +929,73 @@ class AppointmentServiceTest extends TestCase
             ->willReturn(null);
 
         $this->service->deleteAppointment(99);
+    }
+
+    public function testDeleteAppointmentThrowsOnInvalidScope(): void
+    {
+        $this->expectException(ValidationException::class);
+
+        $this->service->deleteAppointment(10, 'invalid-scope');
+    }
+
+    public function testDeleteAppointmentIgnoresScopeWhenNotRecurring(): void
+    {
+        // Sem recurrence_group_id — mesmo pedindo 'all', deve apagar só este
+        $appointment = $this->makeAppointment(10, 'scheduled', true, false, null);
+
+        $this->appointmentRepositoryMock
+            ->method('findById')
+            ->willReturn($appointment);
+
+        $this->appointmentRepositoryMock
+            ->expects($this->once())
+            ->method('delete')
+            ->with(10)
+            ->willReturn(true);
+
+        $this->appointmentRepositoryMock
+            ->expects($this->never())
+            ->method('deleteRecurrenceGroup');
+
+        $result = $this->service->deleteAppointment(10, 'all');
+        $this->assertEquals(1, $result);
+    }
+
+    public function testDeleteAppointmentFutureScopeDeletesFromRecurrence(): void
+    {
+        $startTime = new DateTime('+1 day');
+        $appointment = $this->makeAppointment(10, 'scheduled', true, false, 5, $startTime);
+
+        $this->appointmentRepositoryMock
+            ->method('findById')
+            ->willReturn($appointment);
+
+        $this->appointmentRepositoryMock
+            ->expects($this->once())
+            ->method('deleteFromRecurrence')
+            ->with(5, $startTime)
+            ->willReturn(3);
+
+        $result = $this->service->deleteAppointment(10, 'future');
+        $this->assertEquals(3, $result);
+    }
+
+    public function testDeleteAppointmentAllScopeDeletesEntireRecurrence(): void
+    {
+        $appointment = $this->makeAppointment(10, 'scheduled', true, false, 5);
+
+        $this->appointmentRepositoryMock
+            ->method('findById')
+            ->willReturn($appointment);
+
+        $this->appointmentRepositoryMock
+            ->expects($this->once())
+            ->method('deleteRecurrenceGroup')
+            ->with(5)
+            ->willReturn(6);
+
+        $result = $this->service->deleteAppointment(10, 'all');
+        $this->assertEquals(6, $result);
     }
 
     public function testRestoreAppointmentSuccessfully(): void

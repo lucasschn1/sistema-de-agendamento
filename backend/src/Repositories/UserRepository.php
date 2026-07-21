@@ -78,6 +78,45 @@ class UserRepository {
      * @return User|null
      */
 
+    /**
+     * Busca vários usuários de uma vez por ID — evita N+1 queries em quem
+     * precisa carregar relacionamentos de uma lista (ex: agendamentos)
+     *
+     * @param int[] $ids
+     * @param bool $includeDeleted - se true, retorna também os soft-deleted
+     * @return array<int, User> Indexado pelo próprio ID do usuário
+     */
+    public function findByIds(array $ids, bool $includeDeleted = false): array {
+        $ids = array_unique(array_filter($ids));
+
+        if (empty($ids)) {
+            return [];
+        }
+
+        try {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $sql = "SELECT * FROM users WHERE id IN ({$placeholders})";
+
+            if (!$includeDeleted) {
+                $sql .= " AND deleted_at IS NULL";
+            }
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute(array_values($ids));
+
+            $users = [];
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $users[(int) $row['id']] = new User($row);
+            }
+
+            return $users;
+
+        } catch (PDOException $e) {
+            error_log("Erro ao buscar usuários por IDs: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
     public function findByCpf(string $cpf, bool $includeDeleted = false): ?User {
         try {
             $sql = "SELECT * FROM users WHERE cpf = :cpf";

@@ -104,71 +104,77 @@ export default function Sidebar({ isOpen, onClose }) {
       <nav className="sidebar-nav">
 
         {/* Seção Geral */}
-        <div className="sidebar-section-label">Geral</div>
+        <div className="sidebar-section">
+          <div className="sidebar-section-label">Geral</div>
 
-        <NavLink
-          to="/dashboard"
-          className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
-        >
-          <Icons.Dashboard />
-          Dashboard
-        </NavLink>
+          <NavLink
+            to="/dashboard"
+            className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
+          >
+            <span className="sidebar-link-icon"><Icons.Dashboard /></span>
+            Dashboard
+          </NavLink>
 
-        <NavLink
-          to="/appointments"
-          className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
-        >
-          <Icons.Calendar />
-          Agendamentos
-        </NavLink>
+          <NavLink
+            to="/appointments"
+            className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
+          >
+            <span className="sidebar-link-icon"><Icons.Calendar /></span>
+            Agendamentos
+          </NavLink>
 
-        <NavLink
-          to="/patients"
-          className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
-        >
-          <Icons.Users />
-          Pacientes
-        </NavLink>
+          <NavLink
+            to="/patients"
+            className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
+          >
+            <span className="sidebar-link-icon"><Icons.Users /></span>
+            Pacientes
+          </NavLink>
+        </div>
 
         {/* Seção Admin — só aparece para admins */}
         {isAdmin() && (
           <>
-            <div className="sidebar-section-label" style={{ marginTop: 8 }}>Admin</div>
+            <div className="sidebar-section">
+              <div className="sidebar-section-label">Admin</div>
 
-            <NavLink
-              to="/procedures"
-              className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
-            >
-              <Icons.Stethoscope />
-              Procedimentos
-            </NavLink>
+              <NavLink
+                to="/procedures"
+                className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
+              >
+                <span className="sidebar-link-icon"><Icons.Stethoscope /></span>
+                Procedimentos
+              </NavLink>
 
-            <NavLink
-              to="/financial"
-              className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
-            >
-              <Icons.Cash />
-              Financeiro
-            </NavLink>
+              <NavLink
+                to="/financial"
+                className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
+              >
+                <span className="sidebar-link-icon"><Icons.Cash /></span>
+                Financeiro
+              </NavLink>
 
-            <NavLink
-              to="/users"
-              className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
-            >
-              <Icons.UserCog />
-              Usuários
-            </NavLink>
+              <NavLink
+                to="/users"
+                className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
+              >
+                <span className="sidebar-link-icon"><Icons.UserCog /></span>
+                Usuários
+              </NavLink>
+            </div>
 
             {/* Módulo isolado da agenda principal — seção própria de propósito */}
-            <div className="sidebar-section-label" style={{ marginTop: 8 }}>Sublocação</div>
+            <div className="sidebar-section">
+              <div className="sidebar-section-label">Sublocação</div>
 
-            <NavLink
-              to="/rentals"
-              className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
-            >
-              <Icons.Key />
-              Sublocações
-            </NavLink>
+              <NavLink
+                to="/rentals"
+                className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
+              >
+                <span className="sidebar-link-icon"><Icons.Key /></span>
+                Sublocações
+              </NavLink>
+            </div>
           </>
         )}
       </nav>
@@ -176,7 +182,7 @@ export default function Sidebar({ isOpen, onClose }) {
       {/* Usuário logado */}
       <div className="sidebar-user">
         <div className="sidebar-avatar">{avatarLetter}</div>
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="sidebar-user-info">
           <p className="sidebar-user-name">{user?.name}</p>
           <p className="sidebar-user-role">{roleLabel}</p>
         </div>

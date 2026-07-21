@@ -12,7 +12,6 @@ use App\Exceptions\ValidationException;
 
 use App\Exceptions\appointment\AppointmentConflictException;
 use App\Exceptions\appointment\AppointmentNotFoundException;
-use App\Exceptions\appointment\PastAppointmentException;
 use App\Exceptions\appointment\NoShowTimeException;
 use App\Exceptions\appointment\RecurrenceLimitExceededException;
 
@@ -60,6 +59,11 @@ class AppointmentService {
      * Dias da semana válidos (0=Domingo, 1=Segunda ... 6=Sábado)
      */
     private const VALID_DAYS_OF_WEEK = [0, 1, 2, 3, 4, 5, 6];
+
+    /**
+     * Escopos válidos para exclusão de agendamentos recorrentes
+     */
+    private const VALID_DELETE_SCOPES = ['this', 'future', 'all'];
 
 
     public function __construct(
@@ -309,74 +313,6 @@ class AppointmentService {
     }
 
     /**
-     * Cancela um agendamento
-     * 
-     * @param int $appointmentId
-     * @param string $reason Motivo do cancelamento
-     * @param bool $isAdmin Admins podem cancelar agendamentos passados
-     * @throws AppointmentNotFoundException
-     * @throws PastAppointmentException Se o agendamento já passou e não é admin
-     * @throws DomainException Se status não permite cancelamento
-     * @return bool
-     */
-    public function cancelAppointment(int $appointmentId, string $reason, bool $isAdmin = false, ?int $actingUserId = null): bool
-    {
-        $appointment = $this->findOrFail($appointmentId);
-
-        // Regra de negócio: não cancelar agendamentos passados (a menos que admin)
-        if ($appointment->isPast() && !$isAdmin) {
-            throw new PastAppointmentException('cancelar');
-        }
-
-        if (!$appointment->canBeCancelled()) {
-            throw new DomainException(
-                "Não é possível cancelar: status atual é '{$appointment->getStatus()}'"
-            );
-        }
-
-        $result = $this->appointmentRepository->cancel($appointmentId, $reason);
-        $this->appointmentRepository->logHistory(
-            $appointmentId, 'cancelled', $appointment->getStatus(), 'cancelled', $actingUserId, $reason
-        );
-
-        return $result;
-    }
-
-    /**
-     * Cancela todos os agendamentos futuros de uma recorrência
-     * 
-     * @param int $recurrenceGroupId
-     * @param string $reason Motivo do cancelamento
-     * @param DateTime|null $fromDate Data a partir da qual cancelar (null = hoje)
-     * @param bool $isAdmin Admins podem cancelar a partir de datas passadas
-     * @throws AppointmentNotFoundException Se grupo não existir ou não tiver sessões
-     * @throws PastAppointmentException Se fromDate for passada e não for admin
-     * @return int Número de sessões canceladas
-     */
-    public function cancelRecurrence(
-        int $recurrenceGroupId,
-        string $reason,
-        ?DateTime $fromDate = null,
-        bool $isAdmin = false
-    ): int {
-        $fromDate = $fromDate ?? new DateTime();
-
-        // Regra de negócio: não cancelar a partir de datas passadas (a menos que admin)
-        if ($fromDate < new DateTime() && !$isAdmin) {
-            throw new PastAppointmentException('cancelar sessões passadas');
-        }
-
-        // Verifica se o grupo existe e tem sessões
-        $appointments = $this->appointmentRepository->findByRecurrenceGroup($recurrenceGroupId, false);
-
-        if (empty($appointments)) {
-            throw new AppointmentNotFoundException($recurrenceGroupId);
-        }
-
-        return $this->appointmentRepository->cancelRecurrence($recurrenceGroupId, $fromDate, $reason);
-    }
-
-    /**
      * Marca agendamento como no-show (paciente não compareceu)
      * 
      * REGRA DE NEGÓCIO:
@@ -453,7 +389,7 @@ class AppointmentService {
      * @param DateTime $newStartTime Nova data/hora
      * @param bool $isAdmin Admins podem reagendar sem restrições de prazo
      * @throws AppointmentNotFoundException
-     * @throws PastAppointmentException Se novo horário for no passado
+     * @throws ValidationException Se novo horário for no passado
      * @throws AppointmentConflictException Se houver conflito no novo horário
      * @return bool
      */
@@ -678,18 +614,45 @@ class AppointmentService {
     // =========================================================
 
     /**
-     * Remove permanentemente da visão (soft delete)
-     * Mantém histórico no banco
-     * 
+     * Exclui (soft delete) um agendamento — único fluxo de encerramento de
+     * agendamentos, substituindo o antigo cancelamento. Para agendamentos
+     * recorrentes, o escopo define quantas sessões são afetadas:
+     *
+     * - 'this'   → apenas a sessão selecionada
+     * - 'future' → a sessão selecionada e todas as futuras do mesmo grupo
+     *              (sessões anteriores são preservadas)
+     * - 'all'    → todas as sessões do grupo, passadas e futuras
+     *
+     * Agendamentos que não pertencem a uma recorrência sempre usam 'this'.
+     *
      * @param int $appointmentId
+     * @param string $scope 'this' | 'future' | 'all'
      * @throws AppointmentNotFoundException
-     * @return bool
+     * @throws ValidationException Se o escopo for inválido
+     * @return int Número de sessões excluídas
      */
-    public function deleteAppointment(int $appointmentId): bool
+    public function deleteAppointment(int $appointmentId, string $scope = 'this'): int
     {
-        $this->findOrFail($appointmentId);
+        if (!in_array($scope, self::VALID_DELETE_SCOPES)) {
+            throw new ValidationException(['scope' => 'Escopo de exclusão inválido. Use: this, future ou all']);
+        }
 
-        return $this->appointmentRepository->delete($appointmentId);
+        $appointment = $this->findOrFail($appointmentId);
+
+        if ($scope === 'this' || !$appointment->isRecurring()) {
+            $this->appointmentRepository->delete($appointmentId);
+            return 1;
+        }
+
+        if ($scope === 'future') {
+            return $this->appointmentRepository->deleteFromRecurrence(
+                $appointment->getRecurrenceGroupId(),
+                $appointment->getStartTime()
+            );
+        }
+
+        // scope === 'all'
+        return $this->appointmentRepository->deleteRecurrenceGroup($appointment->getRecurrenceGroupId());
     }
 
     /**

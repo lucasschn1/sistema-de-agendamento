@@ -53,3 +53,13 @@ export function registerPayment(payload) {
 export function undoPayment(id, reason) {
   return api.patch(`/api/financial/payment/${id}/undo`, { reason }).then((res) => res.data.data)
 }
+
+// GET /api/financial/history/summary?year=&month=&professional_id=&patient_id=&service_id=&method=&search=
+export function getHistorySummary(params) {
+  return api.get('/api/financial/history/summary', { params }).then((res) => res.data.data)
+}
+
+// GET /api/financial/history/payments?year=&month=&...&page=&per_page=
+export function getHistoryPayments(params) {
+  return api.get('/api/financial/history/payments', { params }).then((res) => res.data.data)
+}

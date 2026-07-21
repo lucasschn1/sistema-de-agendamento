@@ -612,33 +612,6 @@ BEGIN
 END //
 
 
--- Procedure: Cancelar recorrência a partir de uma data
--- Preserva sessões já realizadas, cancela apenas as futuras
-CREATE PROCEDURE sp_cancel_recurrence(
-    IN p_group_id INT,
-    IN p_from_date DATE,
-    IN p_reason TEXT
-)
-BEGIN
-    -- Cancela appointments futuros do grupo
-    UPDATE appointments
-    SET status = 'cancelled',
-        cancellation_reason = p_reason
-    WHERE recurrence_group_id = p_group_id
-      AND DATE(start_time) >= p_from_date
-      AND status IN ('scheduled', 'confirmed')
-      AND deleted_at IS NULL;
-
-    -- Desativa o grupo de recorrência
-    UPDATE recurrence_groups
-    SET active = FALSE,
-        end_date = DATE_SUB(p_from_date, INTERVAL 1 DAY)
-    WHERE id = p_group_id;
-
-    SELECT ROW_COUNT() AS sessoes_canceladas;
-END //
-
-
 -- Procedure: Registrar pagamento
 CREATE PROCEDURE sp_register_payment(
     IN p_appointment_id INT,
@@ -977,9 +950,6 @@ CALL sp_create_recurrence(5, 2, 2, 'quinzenal', 3, '15:00:00', '2026-02-18', '20
 
 -- Todas as recorrências ativas
 -- SELECT * FROM vw_recorrencias WHERE active = TRUE;
-
--- Cancelar recorrência a partir de hoje
--- CALL sp_cancel_recurrence(1, CURDATE(), 'Paciente solicitou encerramento do tratamento');
 
 -- Pagamentos pendentes
 -- SELECT * FROM vw_pendentes;

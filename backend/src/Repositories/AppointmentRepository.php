@@ -247,14 +247,261 @@ class AppointmentRepository {
                     AND status = 'completed'
                     AND deleted_at IS NULL
                     ORDER BY start_time";
-            
-            $stmt = $this->pdo->query($sql);
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute();
             $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             return $this->hydrateAppointments($results, $loadRelations);
 
         } catch (PDOException $e) {
             error_log("Erro ao buscar agendamentos não pagos: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Constrói a cláusula WHERE + bindings compartilhada por findPaidFiltered,
+     * countPaidFiltered e getPaidAggregates — filtros opcionais são anexados
+     * condicionalmente para que os três métodos nunca divirjam sobre o que
+     * conta como "pago no período" (fonte única de verdade para o Financeiro)
+     *
+     * @param array{professional_id?:?int,patient_id?:?int,service_id?:?int,method?:?string,search?:?string} $filters
+     * @return array{0:string,1:string,2:array} [joinSql, whereSql, bindings]
+     */
+    private function buildPaidFilterClause(DateTime $startDate, DateTime $endDate, array $filters = []): array {
+        $joinSql = '';
+        $whereSql = "WHERE a.paid = 1
+                      AND a.deleted_at IS NULL
+                      AND a.payment_date >= :start_date
+                      AND a.payment_date <= :end_date";
+
+        $bindings = [
+            'start_date' => $startDate->format('Y-m-d'),
+            'end_date'   => $endDate->format('Y-m-d'),
+        ];
+
+        if (!empty($filters['professional_id'])) {
+            $whereSql .= " AND a.professional_id = :professional_id";
+            $bindings['professional_id'] = (int) $filters['professional_id'];
+        }
+
+        if (!empty($filters['patient_id'])) {
+            $whereSql .= " AND a.patient_id = :patient_id";
+            $bindings['patient_id'] = (int) $filters['patient_id'];
+        }
+
+        if (!empty($filters['service_id'])) {
+            $whereSql .= " AND a.service_id = :service_id";
+            $bindings['service_id'] = (int) $filters['service_id'];
+        }
+
+        if (!empty($filters['method'])) {
+            $whereSql .= " AND a.payment_method = :method";
+            $bindings['method'] = $filters['method'];
+        }
+
+        if (!empty($filters['search'])) {
+            $joinSql = "LEFT JOIN users up ON up.id = a.patient_id
+                        LEFT JOIN users uf ON uf.id = a.professional_id
+                        LEFT JOIN services s ON s.id = a.service_id";
+            // cada ocorrência precisa de seu próprio placeholder — PDO não aceita
+            // o mesmo nome de parâmetro nomeado repetido com prepares reais
+            $whereSql .= " AND (up.name LIKE :search1 OR uf.name LIKE :search2 OR s.name LIKE :search3)";
+            $searchTerm = '%' . $filters['search'] . '%';
+            $bindings['search1'] = $searchTerm;
+            $bindings['search2'] = $searchTerm;
+            $bindings['search3'] = $searchTerm;
+        }
+
+        return [$joinSql, $whereSql, $bindings];
+    }
+
+    /**
+     * Busca pagamentos registrados em um período (competência = payment_date),
+     * com filtros opcionais combinados — usado pelo Histórico de Pagamentos
+     *
+     * @return Appointment[]
+     */
+    public function findPaidFiltered(
+        DateTime $startDate,
+        DateTime $endDate,
+        array $filters = [],
+        int $limit = 20,
+        int $offset = 0,
+        bool $loadRelations = true
+    ): array {
+        try {
+            [$joinSql, $whereSql, $bindings] = $this->buildPaidFilterClause($startDate, $endDate, $filters);
+
+            $sql = "SELECT a.* FROM appointments a
+                    {$joinSql}
+                    {$whereSql}
+                    ORDER BY a.payment_date DESC, a.start_time DESC
+                    LIMIT :limit OFFSET :offset";
+
+            $stmt = $this->pdo->prepare($sql);
+            foreach ($bindings as $key => $value) {
+                $stmt->bindValue(':' . $key, $value);
+            }
+            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+            $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+            $stmt->execute();
+
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            return $this->hydrateAppointments($results, $loadRelations);
+
+        } catch (PDOException $e) {
+            error_log("Erro ao buscar pagamentos filtrados: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Conta pagamentos de um período com os mesmos filtros de findPaidFiltered
+     * (paginação do Histórico de Pagamentos)
+     */
+    public function countPaidFiltered(DateTime $startDate, DateTime $endDate, array $filters = []): int {
+        try {
+            [$joinSql, $whereSql, $bindings] = $this->buildPaidFilterClause($startDate, $endDate, $filters);
+
+            $sql = "SELECT COUNT(*) FROM appointments a {$joinSql} {$whereSql}";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($bindings);
+
+            return (int) $stmt->fetchColumn();
+
+        } catch (PDOException $e) {
+            error_log("Erro ao contar pagamentos filtrados: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Agrega em SQL (não em loop PHP) os números do resumo de um período de
+     * pagamentos — receita total, quantidade de pagamentos, pacientes e
+     * profissionais distintos atendidos. Usa a mesma cláusula de filtro de
+     * findPaidFiltered/countPaidFiltered para nunca divergir do que aparece
+     * na listagem correspondente.
+     *
+     * @return array{total_revenue:float,payment_count:int,patient_count:int,professional_count:int}
+     */
+    public function getPaidAggregates(DateTime $startDate, DateTime $endDate, array $filters = []): array {
+        try {
+            [$joinSql, $whereSql, $bindings] = $this->buildPaidFilterClause($startDate, $endDate, $filters);
+
+            $sql = "SELECT
+                        COALESCE(SUM(a.price), 0) AS total_revenue,
+                        COUNT(*) AS payment_count,
+                        COUNT(DISTINCT a.patient_id) AS patient_count,
+                        COUNT(DISTINCT a.professional_id) AS professional_count
+                    FROM appointments a {$joinSql} {$whereSql}";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($bindings);
+
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            return [
+                'total_revenue'      => (float) $row['total_revenue'],
+                'payment_count'      => (int) $row['payment_count'],
+                'patient_count'      => (int) $row['patient_count'],
+                'professional_count' => (int) $row['professional_count'],
+            ];
+
+        } catch (PDOException $e) {
+            error_log("Erro ao agregar pagamentos: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Receita paga (payment_date no período) agrupada por método de pagamento
+     * — mesma cláusula de filtro de getPaidAggregates, para nunca divergir do
+     * "recebido" total do mesmo período
+     *
+     * @return array<string,float> ['PIX' => 750.0, 'Dinheiro' => 220.0, ...]
+     */
+    public function getPaidRevenueByMethod(DateTime $startDate, DateTime $endDate): array {
+        try {
+            [$joinSql, $whereSql, $bindings] = $this->buildPaidFilterClause($startDate, $endDate);
+
+            $sql = "SELECT a.payment_method AS method, COALESCE(SUM(a.price), 0) AS total
+                    FROM appointments a {$joinSql} {$whereSql}
+                    GROUP BY a.payment_method";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($bindings);
+
+            $result = [];
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $result[$row['method'] ?? 'Indefinido'] = (float) $row['total'];
+            }
+
+            return $result;
+
+        } catch (PDOException $e) {
+            error_log("Erro ao agregar pagamentos por método: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Receita paga (payment_date no período) agrupada por profissional —
+     * mesma cláusula de filtro de getPaidAggregates, para que a soma de todos
+     * os profissionais bata exatamente com o "recebido" total do período
+     *
+     * @return array<int,array{received:float,payment_count:int}> indexado por professional_id
+     */
+    public function getPaidRevenueByProfessional(DateTime $startDate, DateTime $endDate): array {
+        try {
+            [, $whereSql, $bindings] = $this->buildPaidFilterClause($startDate, $endDate);
+
+            // join direto por nome do profissional, mesmo quando ele não tem
+            // nenhuma sessão com start_time no período (só pagamento registrado
+            // nele) — evita uma segunda consulta só para resolver o nome
+            $sql = "SELECT a.professional_id, uf.name AS professional_name,
+                        COALESCE(SUM(a.price), 0) AS received, COUNT(*) AS payment_count
+                    FROM appointments a
+                    LEFT JOIN users uf ON uf.id = a.professional_id
+                    {$whereSql}
+                    GROUP BY a.professional_id, uf.name";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($bindings);
+
+            $result = [];
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $result[(int) $row['professional_id']] = [
+                    'professional_name' => $row['professional_name'] ?? 'Desconhecido',
+                    'received'          => (float) $row['received'],
+                    'payment_count'     => (int) $row['payment_count'],
+                ];
+            }
+
+            return $result;
+
+        } catch (PDOException $e) {
+            error_log("Erro ao agregar pagamentos por profissional: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Soma histórica de tudo que já foi recebido (todos os meses), sem passar
+     * pelo limite de 365 dias do validador de período — usado pelo KPI
+     * "Total recebido" do Resumo Financeiro
+     */
+    public function sumAllPaidRevenue(): float {
+        try {
+            $sql = "SELECT COALESCE(SUM(price), 0) FROM appointments WHERE paid = 1 AND deleted_at IS NULL";
+            $stmt = $this->pdo->query($sql);
+            return (float) $stmt->fetchColumn();
+
+        } catch (PDOException $e) {
+            error_log("Erro ao somar receita total recebida: " . $e->getMessage());
             throw $e;
         }
     }
@@ -481,37 +728,6 @@ class AppointmentRepository {
     }
 
     /**
-     * Cancela um agendamento
-     */
-    public function cancel(int $appointmentId, ?string $reason = null): bool {
-        try {
-            $sql = "UPDATE appointments
-                    SET status = 'cancelled', cancellation_reason = :reason
-                    WHERE id = :id
-                    AND status IN ('scheduled', 'confirm')
-                    AND deleted_at IS NULL";
-
-            $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([
-                'id' => $appointmentId,
-                'reason' => $reason
-            ]);
-
-            if ($stmt->rowCount() === 0) {
-                throw new DomainException(
-                    "Não é possível cancelar: agendamento não encontrado ou status inválido"
-                );
-            }
-
-            return true;
-
-        } catch (PDOException $e) {
-            error_log("Erro ao cancelar agendamento: " . $e->getMessage());
-            throw $e;
-        }
-    }
-
-    /**
      * Marca - no-show (paciente não apareceu)
      */
     public function markAsNoShow(int $appointmentId, ?string $reason = null) : bool {
@@ -603,28 +819,6 @@ class AppointmentRepository {
     }
 
     /**
-     * Cancela recorrência a partir de uma data usando stored procedure
-     */
-    public function cancelRecurrence(int $recurrenceGroupId, DateTime $fromDate, ?string $reason = null): int {
-        try {
-            $stmt = $this->pdo->prepare("CALL sp_cancel_recurrence(?,?,?)");
-
-            $stmt->execute([
-                $recurrenceGroupId,
-                $fromDate->format('Y-m-d'),
-                $reason
-            ]);
-
-            $result = $stmt->fetch(PDO::FETCH_ASSOC);
-            return (int) $result['sessoes_canceladas'];
-
-        } catch(PDOException $e) {
-            error_log("Erro ao cancelar recorrência: " . $e->getMessage());
-            throw $e;
-        }
-    }
-
-    /**
      * Atualiza status do agendamento (método privado genérico)
      */
     private function updateStatus(int $appointmentId, string $newStatus): bool {
@@ -675,6 +869,59 @@ class AppointmentRepository {
 
         } catch(PDOException $e) {
             error_log("Erro ao deletar agendamento: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Soft delete: esta sessão e todas as futuras (start_time >= $fromStartTime)
+     * do mesmo grupo de recorrência — sessões passadas são preservadas
+     *
+     * @return int Número de sessões excluídas
+     */
+    public function deleteFromRecurrence(int $recurrenceGroupId, DateTime $fromStartTime): int {
+        try {
+            $stmt = $this->pdo->prepare(
+                "UPDATE appointments
+                SET deleted_at = NOW()
+                WHERE recurrence_group_id = :group_id
+                AND start_time >= :from_time
+                AND deleted_at IS NULL"
+            );
+
+            $stmt->execute([
+                'group_id' => $recurrenceGroupId,
+                'from_time' => $fromStartTime->format('Y-m-d H:i:s'),
+            ]);
+
+            return $stmt->rowCount();
+
+        } catch (PDOException $e) {
+            error_log("Erro ao excluir sessões futuras da recorrência #{$recurrenceGroupId}: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Soft delete: todas as sessões do grupo de recorrência, passadas e futuras
+     *
+     * @return int Número de sessões excluídas
+     */
+    public function deleteRecurrenceGroup(int $recurrenceGroupId): int {
+        try {
+            $stmt = $this->pdo->prepare(
+                "UPDATE appointments
+                SET deleted_at = NOW()
+                WHERE recurrence_group_id = :group_id
+                AND deleted_at IS NULL"
+            );
+
+            $stmt->execute(['group_id' => $recurrenceGroupId]);
+
+            return $stmt->rowCount();
+
+        } catch (PDOException $e) {
+            error_log("Erro ao excluir recorrência #{$recurrenceGroupId}: " . $e->getMessage());
             throw $e;
         }
     }
@@ -851,22 +1098,48 @@ class AppointmentRepository {
      */
 
     /**
-     * Carrega relacionamentos (User e Service) em um Appointment
+     * Carrega relacionamentos (User e Service) em um único Appointment
      */
     private function loadRelations(Appointment $appointment): void {
-        $patient = $this->userRepo->findById($appointment->getPatientId());
-        if ($patient) {
-            $appointment->setPatient($patient);
+        $this->loadRelationsBatch([$appointment]);
+    }
+
+    /**
+     * Carrega relacionamentos (User e Service) em uma lista de agendamentos
+     * de uma só vez — 2 queries com `WHERE id IN (...)` no lugar de 3 queries
+     * por agendamento (evita N+1: uma listagem de 100 agendamentos deixa de
+     * gerar 300 SELECTs extras e passa a gerar só 2)
+     *
+     * @param Appointment[] $appointments
+     */
+    private function loadRelationsBatch(array $appointments): void {
+        if (empty($appointments)) {
+            return;
         }
 
-        $professional = $this->userRepo->findById($appointment->getProfessionalId());
-        if ($professional) {
-            $appointment->setProfessional($professional);
+        $userIds = [];
+        $serviceIds = [];
+        foreach ($appointments as $appointment) {
+            $userIds[] = $appointment->getPatientId();
+            $userIds[] = $appointment->getProfessionalId();
+            $serviceIds[] = $appointment->getServiceId();
         }
 
-        $service = $this->serviceRepo->findById($appointment->getServiceId());
-        if ($service) {
-            $appointment->setService($service);
+        $users = $this->userRepo->findByIds($userIds);
+        $services = $this->serviceRepo->findByIds($serviceIds);
+
+        foreach ($appointments as $appointment) {
+            if (isset($users[$appointment->getPatientId()])) {
+                $appointment->setPatient($users[$appointment->getPatientId()]);
+            }
+
+            if (isset($users[$appointment->getProfessionalId()])) {
+                $appointment->setProfessional($users[$appointment->getProfessionalId()]);
+            }
+
+            if (isset($services[$appointment->getServiceId()])) {
+                $appointment->setService($services[$appointment->getServiceId()]);
+            }
         }
     }
 
@@ -877,9 +1150,7 @@ class AppointmentRepository {
         $appointments = array_map(fn($data) => new Appointment($data), $results);
 
         if ($loadRelations) {
-            foreach ($appointments as $appointment) {
-                $this->loadRelations($appointment);
-            }
+            $this->loadRelationsBatch($appointments);
         }
 
         return $appointments;

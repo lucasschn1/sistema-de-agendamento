@@ -142,10 +142,6 @@ class Appointment {
         return in_array($this->status, ['completed', 'confirmed']) && !$this->paid;
     }
 
-    public function canBeCancelled(): bool {
-        return in_array($this->status, ['scheduled', 'confirmed']);
-    }
-
     public function isFuture(): bool {
         return $this->startTime > new DateTime();   
     }
@@ -239,15 +235,6 @@ class Appointment {
             throw new DomainException("Não é possível completar: o status atual é '{$this->status}'");
         }
         $this->status = 'completed';
-        $this->updated_at = new DateTime();
-    }
-
-    public function cancel(?string $reason = null): void {
-        if (!in_array($this->status, ['scheduled', 'confirmed'])) {
-          throw new DomainException("Não é possível cancelar: o status atual é '{$this->status}'");  
-        }
-        $this->status = 'cancelled';
-        $this->cancellationReason = $reason;
         $this->updated_at = new DateTime();
     }
 

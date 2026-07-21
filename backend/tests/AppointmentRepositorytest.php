@@ -313,30 +313,6 @@ class AppointmentRepositorytest extends TestCase {
         $this->assertEquals('confirmed', $appointment->getStatus());
     }
  
-    public function testCancelAppointment(): void
-    {
-        $patient = $this->createTestPatient();
-        $professional = $this->createTestProfessional();
-        $service = $this->createTestService();
- 
-        $appointmentId = $this->appointmentRepo->createUnique(
-            $patient->getId(),
-            $professional->getId(),
-            $service->getId(),
-            new DateTime('+1 day 14:00:00')
-        );
-        $this->createdAppointmentIds[] = $appointmentId;
- 
-        // Cancela
-        $result = $this->appointmentRepo->cancel($appointmentId, 'Paciente desistiu');
-        $this->assertTrue($result);
- 
-        // Verifica
-        $appointment = $this->appointmentRepo->findById($appointmentId, false);
-        $this->assertEquals('cancelled', $appointment->getStatus());
-        $this->assertEquals('Paciente desistiu', $appointment->getCancellationReason());
-    }
- 
     public function testMarkAsNoShow(): void
     {
         $patient = $this->createTestPatient();

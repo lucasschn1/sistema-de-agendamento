@@ -48,27 +48,6 @@ function NoShowIcon() {
   )
 }
 
-function CancelIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={15} height={15}>
-      <circle cx="12" cy="12" r="10" />
-      <line x1="15" y1="9" x2="9" y2="15" />
-      <line x1="9" y1="9" x2="15" y2="15" />
-    </svg>
-  )
-}
-
-function RepeatCancelIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={15} height={15}>
-      <path d="M17 1l4 4-4 4" />
-      <path d="M3 11V9a4 4 0 0 1 4-4h14" />
-      <path d="M7 23l-4-4 4-4" />
-      <path d="M21 13v2a4 4 0 0 1-4 4H3" />
-    </svg>
-  )
-}
-
 // =============================================
 // CONTEÚDO EXPANDIDO DO AGENDAMENTO — grade de detalhes, histórico e ações
 // Compartilhado entre a Agenda em Lista e a Agenda Semanal: os dois cards
@@ -77,7 +56,7 @@ function RepeatCancelIcon() {
 // =============================================
 
 export default function AppointmentExpandedContent({
-  appointment: apt, onEdit, onConfirm, onComplete, onCancel, onNoShow, onCancelRecurrence, onDelete,
+  appointment: apt, onEdit, onConfirm, onComplete, onNoShow, onDelete,
 }) {
   const [history, setHistory] = useState(null)
   const [historyLoading, setHistoryLoading] = useState(false)
@@ -93,9 +72,7 @@ export default function AppointmentExpandedContent({
 
   const canConfirm  = apt.status === 'scheduled'
   const canComplete = apt.status === 'confirmed'
-  const canCancel   = apt.status === 'scheduled' || apt.status === 'confirmed'
   const canNoShow   = apt.status === 'confirmed'
-  const canCancelRecurrence = apt.is_recurring && canCancel
   const canEdit     = apt.status === 'scheduled' || apt.status === 'confirmed'
 
   return (
@@ -177,16 +154,6 @@ export default function AppointmentExpandedContent({
         {canNoShow && (
           <Button variant="outline-warning" className="appointment-action-btn" onClick={() => onNoShow(apt)}>
             <NoShowIcon /> Falta
-          </Button>
-        )}
-        {canCancel && (
-          <Button variant="outline-danger" className="appointment-action-btn" onClick={() => onCancel(apt)}>
-            <CancelIcon /> Cancelar
-          </Button>
-        )}
-        {canCancelRecurrence && (
-          <Button variant="outline-danger" className="appointment-action-btn" onClick={() => onCancelRecurrence(apt)}>
-            <RepeatCancelIcon /> Cancelar recorrência
           </Button>
         )}
         {onDelete && (

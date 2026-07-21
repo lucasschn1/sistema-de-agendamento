@@ -3,7 +3,6 @@ export const STATUS_META = {
   scheduled: { label: 'Agendado',   className: 'status-scheduled' },
   confirmed: { label: 'Confirmado', className: 'status-confirmed' },
   completed: { label: 'Concluído',  className: 'status-completed' },
-  cancelled: { label: 'Cancelado',  className: 'status-cancelled' },
   no_show:   { label: 'Falta',      className: 'status-no-show' },
 }
 

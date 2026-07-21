@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Row, Col, Table, Button, Alert, Spinner } from 'react-bootstrap'
+import { Table, Alert, Spinner } from 'react-bootstrap'
 import {
   getCurrentMonthSummary,
-  getTodaySummary,
   getPendingPayments,
   getSummaryByProfessionals,
   getSummaryByMonth,
-  getRecentPayments,
+  getHistorySummary,
 } from '../../api/financial'
 import { parseApiError } from '../../utils/apiError'
 import { useToast } from '../../context/ToastContext'
@@ -14,6 +13,9 @@ import HorizontalBars from '../../components/charts/HorizontalBars'
 import VerticalBars from '../../components/charts/VerticalBars'
 import StackedBar from '../../components/charts/StackedBar'
 import PaymentModal from './PaymentModal'
+import PaymentFlowWidget from './PaymentFlowWidget'
+import PendingSessionsTable from './PendingSessionsTable'
+import PaymentHistorySection from './PaymentHistorySection'
 
 const MONTH_LABELS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
@@ -45,22 +47,18 @@ function lastNMonths(n) {
 
 export default function Financial() {
   const { showToast } = useToast()
-  const [view, setView] = useState('overview') // 'overview' | 'charts'
+  const [section, setSection] = useState('resumo') // 'resumo' | 'aguardando' | 'historico'
 
   const [summary, setSummary] = useState(null)
-  const [todaySummary, setTodaySummary] = useState(null)
+  const [monthTicket, setMonthTicket] = useState(null)
   const [pending, setPending] = useState([])
   const [professionals, setProfessionals] = useState([])
   const [monthlyTrend, setMonthlyTrend] = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError]     = useState('')
-
-  const [recentPayments, setRecentPayments] = useState([])
-  const [recentPage, setRecentPage] = useState(1)
-  const [recentTotalPages, setRecentTotalPages] = useState(1)
-  const [recentLoading, setRecentLoading] = useState(true)
+  const [error, setError] = useState('')
 
   const [payingAppointment, setPayingAppointment] = useState(null)
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -69,19 +67,20 @@ export default function Financial() {
     try {
       const { start, end } = currentMonthRange()
       const months = lastNMonths(6)
+      const now = new Date()
 
-      const [summaryData, todayData, pendingData, professionalsData, ...trendData] = await Promise.all([
+      const [summaryData, pendingData, professionalsData, ticketData, ...trendData] = await Promise.all([
         getCurrentMonthSummary(),
-        getTodaySummary(),
         getPendingPayments(),
         getSummaryByProfessionals(start, end),
+        getHistorySummary({ year: now.getFullYear(), month: now.getMonth() + 1 }),
         ...months.map((m) => getSummaryByMonth(m.year, m.month)),
       ])
 
       setSummary(summaryData)
-      setTodaySummary(todayData)
       setPending(pendingData)
       setProfessionals(professionalsData)
+      setMonthTicket(ticketData)
       setMonthlyTrend(months.map((m, i) => ({ label: m.label, value: trendData[i]?.gross_revenue ?? 0 })))
     } catch (err) {
       setError(parseApiError(err))
@@ -90,33 +89,25 @@ export default function Financial() {
     }
   }, [])
 
-  const loadRecent = useCallback(async (page) => {
-    setRecentLoading(true)
-    try {
-      const result = await getRecentPayments(page, 10)
-      setRecentPayments(result.data)
-      setRecentPage(result.page)
-      setRecentTotalPages(result.total_pages)
-    } catch (err) {
-      showToast(parseApiError(err), 'danger')
-    } finally {
-      setRecentLoading(false)
-    }
-  }, [showToast])
-
   useEffect(() => {
     load()
   }, [load])
 
-  useEffect(() => {
-    loadRecent(1)
-  }, [loadRecent])
+  const refreshAll = useCallback(() => {
+    load()
+    setHistoryRefreshKey((k) => k + 1)
+  }, [load])
 
   const handlePaymentSaved = () => {
     showToast('Pagamento registrado com sucesso')
-    load()
-    loadRecent(recentPage)
+    refreshAll()
   }
+
+  // Soma exatamente os mesmos agendamentos exibidos na tabela "Sessões
+  // aguardando registro" — garante que o widget de fluxo financeiro nunca
+  // divirja do total realmente mostrado nessa tabela (mesma fonte, sem query
+  // separada)
+  const pendingTotal = pending.reduce((sum, apt) => sum + Number(apt.price ?? 0), 0)
 
   const professionalsChart = professionals
     .map((p) => ({ label: p.professional_name, value: p.received }))
@@ -151,17 +142,24 @@ export default function Financial() {
       <div className="filter-chip-group mb-4">
         <button
           type="button"
-          className={`filter-chip${view === 'overview' ? ' active' : ''}`}
-          onClick={() => setView('overview')}
+          className={`filter-chip${section === 'resumo' ? ' active' : ''}`}
+          onClick={() => setSection('resumo')}
         >
-          Visão geral
+          Resumo Financeiro
         </button>
         <button
           type="button"
-          className={`filter-chip${view === 'charts' ? ' active' : ''}`}
-          onClick={() => setView('charts')}
+          className={`filter-chip${section === 'aguardando' ? ' active' : ''}`}
+          onClick={() => setSection('aguardando')}
         >
-          Análises
+          Sessões aguardando registro{pending.length > 0 ? ` (${pending.length})` : ''}
+        </button>
+        <button
+          type="button"
+          className={`filter-chip${section === 'historico' ? ' active' : ''}`}
+          onClick={() => setSection('historico')}
+        >
+          Histórico de Pagamentos
         </button>
       </div>
 
@@ -169,79 +167,42 @@ export default function Financial() {
         <div className="text-center py-4">
           <Spinner animation="border" size="sm" />
         </div>
-      ) : view === 'charts' ? (
-        <div className="financial-charts-grid">
-          <div className="chart-card">
-            <div className="chart-card-title">Faturamento mensal</div>
-            <div className="chart-card-subtitle">Receita bruta — últimos 6 meses</div>
-            <VerticalBars items={monthlyTrend} valueFormatter={formatCurrencyShort} />
-          </div>
-
-          <div className="chart-card">
-            <div className="chart-card-title">Recebido por profissional</div>
-            <div className="chart-card-subtitle">Mês atual</div>
-            {professionalsChart.length === 0 ? (
-              <p className="chart-empty">Nenhuma sessão concluída neste mês.</p>
-            ) : (
-              <HorizontalBars items={professionalsChart} valueFormatter={formatCurrency} />
-            )}
-          </div>
-
-          <div className="chart-card">
-            <div className="chart-card-title">Receita por método de pagamento</div>
-            <div className="chart-card-subtitle">Mês atual</div>
-            {paymentMethodChart.length === 0 ? (
-              <p className="chart-empty">Nenhum pagamento registrado neste mês.</p>
-            ) : (
-              <StackedBar items={paymentMethodChart} valueFormatter={formatCurrency} />
-            )}
-          </div>
-
-          <div className="chart-card">
-            <div className="chart-card-title">Situação das sessões</div>
-            <div className="chart-card-subtitle">Mês atual</div>
-            <HorizontalBars
-              items={statusChart}
-              colors={statusChart.map((s) => s.color)}
-              valueFormatter={(v) => v}
-            />
-          </div>
-        </div>
-      ) : (
+      ) : section === 'resumo' ? (
         <>
-          {/* Resumo do mês atual + hoje */}
-          <Row className="g-3 mb-4">
-            <Col xs={12} sm={6} lg={3}>
-              <div className="stat-card">
-                <div className="stat-card-label">Receita bruta (mês)</div>
-                <div className="stat-card-value">{formatCurrency(summary?.gross_revenue)}</div>
-              </div>
-            </Col>
-            <Col xs={12} sm={6} lg={3}>
-              <div className="stat-card">
-                <div className="stat-card-label">Recebido (mês)</div>
-                <div className="stat-card-value success">{formatCurrency(summary?.received)}</div>
-              </div>
-            </Col>
-            <Col xs={12} sm={6} lg={3}>
-              <div className="stat-card">
-                <div className="stat-card-label">Pendente (mês)</div>
-                <div className="stat-card-value warning">{formatCurrency(summary?.pending)}</div>
-              </div>
-            </Col>
-            <Col xs={12} sm={6} lg={3}>
-              <div className="stat-card">
-                <div className="stat-card-label">Recebido hoje</div>
-                <div className="stat-card-value success">{formatCurrency(todaySummary?.received)}</div>
-                <div className="stat-card-desc">
-                  {todaySummary?.total_completed ?? 0} sessão(ões) concluída(s)
-                </div>
-              </div>
-            </Col>
-          </Row>
+          <div className="financial-kpi-grid mb-4">
+            <div className="stat-card">
+              <div className="stat-card-label">Receita do mês</div>
+              <div className="stat-card-value">{formatCurrency(summary?.gross_revenue)}</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-card-label">Receita registrada hoje</div>
+              <div className="stat-card-value success">{formatCurrency(summary?.received_today)}</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-card-label">Total recebido</div>
+              <div className="stat-card-value success">{formatCurrency(summary?.all_time_received)}</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-card-label">Sessões aguardando registro</div>
+              <div className="stat-card-value warning">{pending.length}</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-card-label">Ticket médio (mês)</div>
+              <div className="stat-card-value">{formatCurrency(monthTicket?.average_ticket)}</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-card-label">Profissionais com recebimento</div>
+              <div className="stat-card-value">{professionals.length}</div>
+            </div>
+          </div>
 
-          {/* Recebimentos por profissional */}
-          <h6 className="mb-3 fw-bold">Recebimentos por profissional (mês atual)</h6>
+          <PaymentFlowWidget
+            previsto={summary?.gross_revenue}
+            recebido={summary?.received}
+            aguardando={pendingTotal}
+          />
+
+          <h6 className="mb-3 fw-bold mt-4">Recebimentos por profissional (mês atual)</h6>
           <div className="financial-table-card mb-4">
             {professionals.length === 0 ? (
               <p className="text-muted text-center py-3 mb-0">Nenhuma sessão concluída neste mês.</p>
@@ -252,7 +213,7 @@ export default function Financial() {
                     <th>Profissional</th>
                     <th>Sessões concluídas</th>
                     <th>Recebido</th>
-                    <th>Pendente</th>
+                    <th>Aguardando registro</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -269,100 +230,56 @@ export default function Financial() {
             )}
           </div>
 
-          {/* Pagamentos pendentes */}
-          <h6 className="mb-3 fw-bold">Pagamentos pendentes</h6>
-          <div className="financial-table-card mb-4">
-            {pending.length === 0 ? (
-              <p className="text-muted text-center py-3 mb-0">Nenhum pagamento pendente.</p>
-            ) : (
-              <Table hover responsive className="mb-0">
-                <thead>
-                  <tr>
-                    <th>Data</th>
-                    <th>Paciente</th>
-                    <th>Procedimento</th>
-                    <th>Valor</th>
-                    <th>Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pending.map((apt) => (
-                    <tr key={apt.id}>
-                      <td>{apt.formatted_start}</td>
-                      <td>{apt.patient?.name}</td>
-                      <td>{apt.service?.name}</td>
-                      <td>{apt.formatted_price}</td>
-                      <td>
-                        <Button size="sm" variant="primary" onClick={() => setPayingAppointment(apt)}>
-                          Registrar pagamento
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-            )}
-          </div>
+          <div className="financial-charts-grid">
+            <div className="chart-card">
+              <div className="chart-card-title">Faturamento mensal</div>
+              <div className="chart-card-subtitle">Receita bruta — últimos 6 meses</div>
+              <VerticalBars items={monthlyTrend} valueFormatter={formatCurrencyShort} />
+            </div>
 
-          {/* Últimos pagamentos (paginado) */}
-          <div className="d-flex align-items-center justify-content-between mb-3">
-            <h6 className="fw-bold mb-0">Últimos pagamentos</h6>
-            <div className="d-flex align-items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline-secondary"
-                disabled={recentLoading || recentPage <= 1}
-                onClick={() => loadRecent(recentPage - 1)}
-              >
-                ← Anterior
-              </Button>
-              <span className="text-muted small">
-                Página {recentPage} de {recentTotalPages || 1}
-              </span>
-              <Button
-                size="sm"
-                variant="outline-secondary"
-                disabled={recentLoading || recentPage >= recentTotalPages}
-                onClick={() => loadRecent(recentPage + 1)}
-              >
-                Próxima →
-              </Button>
+            <div className="chart-card">
+              <div className="chart-card-title">Recebido por profissional</div>
+              <div className="chart-card-subtitle">Mês atual</div>
+              {professionalsChart.length === 0 ? (
+                <p className="chart-empty">Nenhuma sessão concluída neste mês.</p>
+              ) : (
+                <HorizontalBars items={professionalsChart} valueFormatter={formatCurrency} />
+              )}
+            </div>
+
+            <div className="chart-card">
+              <div className="chart-card-title">Receita por método de pagamento</div>
+              <div className="chart-card-subtitle">Mês atual</div>
+              {paymentMethodChart.length === 0 ? (
+                <p className="chart-empty">Nenhum pagamento registrado neste mês.</p>
+              ) : (
+                <StackedBar items={paymentMethodChart} valueFormatter={formatCurrency} />
+              )}
+            </div>
+
+            <div className="chart-card">
+              <div className="chart-card-title">Situação das sessões</div>
+              <div className="chart-card-subtitle">Mês atual</div>
+              <HorizontalBars
+                items={statusChart}
+                colors={statusChart.map((s) => s.color)}
+                valueFormatter={(v) => v}
+              />
             </div>
           </div>
-          <div className="financial-table-card">
-            {recentLoading ? (
-              <div className="text-center py-4">
-                <Spinner animation="border" size="sm" />
-              </div>
-            ) : recentPayments.length === 0 ? (
-              <p className="text-muted text-center py-3 mb-0">Nenhum pagamento registrado ainda.</p>
-            ) : (
-              <Table hover responsive className="mb-0">
-                <thead>
-                  <tr>
-                    <th>Pago em</th>
-                    <th>Paciente</th>
-                    <th>Profissional</th>
-                    <th>Procedimento</th>
-                    <th>Método</th>
-                    <th>Valor</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentPayments.map((apt) => (
-                    <tr key={apt.id}>
-                      <td>{apt.payment_date ?? '—'}</td>
-                      <td>{apt.patient?.name}</td>
-                      <td>{apt.professional?.name}</td>
-                      <td>{apt.service?.name}</td>
-                      <td>{apt.payment_method ?? '—'}</td>
-                      <td>{apt.formatted_price}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-            )}
-          </div>
+        </>
+      ) : section === 'aguardando' ? (
+        <>
+          <h6 className="mb-3 fw-bold">Sessões aguardando registro de pagamento</h6>
+          <p className="text-muted small mb-3">
+            Atendimentos já realizados cujo pagamento ainda não foi registrado — não são cobranças vencidas.
+          </p>
+          <PendingSessionsTable sessions={pending} onRegisterPayment={setPayingAppointment} />
+        </>
+      ) : (
+        <>
+          <h6 className="mb-3 fw-bold">Histórico de Pagamentos</h6>
+          <PaymentHistorySection key={historyRefreshKey} onDataChanged={refreshAll} />
         </>
       )}
 

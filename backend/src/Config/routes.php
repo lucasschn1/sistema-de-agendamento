@@ -67,13 +67,11 @@ $router->group('/api', [AuthMiddleware::class], function ($router) {
     // Ações de status
     $router->patch('/appointments/{id}/confirm',     [AppointmentController::class, 'confirm']);   // PATCH /api/appointments/{id}/confirm
     $router->patch('/appointments/{id}/complete',    [AppointmentController::class, 'complete']);  // PATCH /api/appointments/{id}/complete
-    $router->patch('/appointments/{id}/cancel',      [AppointmentController::class, 'cancel']);    // PATCH /api/appointments/{id}/cancel
     $router->patch('/appointments/{id}/no-show',     [AppointmentController::class, 'noShow']);    // PATCH /api/appointments/{id}/no-show
     $router->patch('/appointments/{id}/reschedule',  [AppointmentController::class, 'reschedule']);// PATCH /api/appointments/{id}/reschedule
 
     // Recorrências
     $router->post('/appointments/recurrence',                    [AppointmentController::class, 'storeRecurrence']); // POST  /api/appointments/recurrence
-    $router->patch('/appointments/recurrence/{groupId}/cancel',  [AppointmentController::class, 'cancelRecurrence']); // PATCH /api/appointments/recurrence/{groupId}/cancel
     $router->get('/appointments/recurrence/{groupId}',           [AppointmentController::class, 'showRecurrence']);  // GET   /api/appointments/recurrence/{groupId}
 
     // Disponibilidade (para o calendário do React)
@@ -139,6 +137,8 @@ $router->group('/api', [AuthMiddleware::class], function ($router) {
         $router->get('/financial/paid/recent',        [FinancialController::class, 'recentPaid']);      // GET   /api/financial/paid/recent?page=1&per_page=10
         $router->get('/financial/paid',               [FinancialController::class, 'paid']);            // GET   /api/financial/paid?start=2026-01-01&end=2026-06-30
         $router->get('/financial/methods',            [FinancialController::class, 'paymentMethods']);  // GET   /api/financial/methods
+        $router->get('/financial/history/summary',    [FinancialController::class, 'historySummary']);  // GET   /api/financial/history/summary?year=&month=&professional_id=&patient_id=&service_id=&method=&search=
+        $router->get('/financial/history/payments',   [FinancialController::class, 'historyList']);     // GET   /api/financial/history/payments?year=&month=&...&page=&per_page=
 
 
         // ── Sublocação de salas (módulo isolado da agenda principal) ──

@@ -12,7 +12,6 @@ use App\Exceptions\user\UserNotFoundException;
 use App\Exceptions\procedure\ProcedureNotFoundException;
 use App\Exceptions\user\InactiveUserException;
 use App\Exceptions\procedure\InactiveProcedureException;
-use App\Exceptions\appointment\PastAppointmentException;
 use App\Exceptions\appointment\NoShowTimeException;
 
 
@@ -26,17 +25,15 @@ use App\Exceptions\appointment\NoShowTimeException;
  *   PUT   /api/appointments/{id}                     → update()
  *   PATCH /api/appointments/{id}/confirm             → confirm()
  *   PATCH /api/appointments/{id}/complete            → complete()
- *   PATCH /api/appointments/{id}/cancel              → cancel()
  *   PATCH /api/appointments/{id}/no-show             → noShow()
  *   PATCH /api/appointments/{id}/reschedule          → reschedule()
  *   POST  /api/appointments/recurrence               → storeRecurrence()
- *   PATCH /api/appointments/recurrence/{groupId}/cancel → cancelRecurrence()
  *   GET   /api/appointments/recurrence/{groupId}     → showRecurrence()
  *   GET   /api/availability                          → availability()
- * 
+ *
  * Rotas exclusivas admin:
- *   DELETE /api/appointments/{id}                    → destroy()
- *   PATCH  /api/appointments/{id}/restore            → restore()
+ *   DELETE /api/appointments/{id}?scope=this|future|all → destroy()
+ *   PATCH  /api/appointments/{id}/restore                → restore()
  */
 Class AppointmentController {
     private AppointmentService $appointmentService;
@@ -369,44 +366,6 @@ Class AppointmentController {
         }
     }
 
-     /**
-     * PATCH /api/appointments/{id}/cancel
-     * 
-     * Body esperado:
-     * {
-     *   "reason": "Paciente solicitou cancelamento"
-     * }
-     */
-    public function cancel(Request $request): Response
-    {
-        try {
-            $id = (int) $request->param('id');
-            $reason = $request->input('reason', '');
-            $isAdmin = $request->user()->isAdmin();
- 
-            if (empty($reason)) {
-                return Response::validationError(['reason' => 'Motivo do cancelamento é obrigatório']);
-            }
- 
-            $this->appointmentService->cancelAppointment($id, $reason, $isAdmin, $request->user()->getId());
- 
-            $appointment = $this->appointmentService->getAppointmentById($id);
-            return Response::json($appointment->toPublicArray(), 200, 'Agendamento cancelado');
- 
-        } catch (AppointmentNotFoundException $e) {
-            return Response::notFound($e->getMessage());
- 
-        } catch (PastAppointmentException $e) {
-            return Response::error($e->getMessage(), 400, 'PastAppointmentException');
-
-        } catch (\DomainException $e) {
-            return Response::error($e->getMessage(), 400);
- 
-        } catch (\Throwable $e) {
-            return Response::serverError();
-        }
-    }
-
     /**
      * PATCH /api/appointments/{id}/no-show
      * 
@@ -507,71 +466,36 @@ Class AppointmentController {
         }
     }
  
-    /**
-     * PATCH /api/appointments/recurrence/{groupId}/cancel
-     * Cancela todas as sessões futuras de uma recorrência
-     * 
-     * Body esperado:
-     * {
-     *   "reason": "Paciente encerrou tratamento",
-     *   "from_date": "2026-07-01"  (opcional — padrão hoje)
-     * }
-     */
-    public function cancelRecurrence(Request $request): Response {
-        try {
-            $groupId  = (int) $request->param('groupId');
-            $reason   = $request->input('reason', '');
-            $fromDate = $request->input('from_date');
-            $isAdmin  = $request->user()->isAdmin();
- 
-            if (empty($reason)) {
-                return Response::validationError(['reason' => 'Motivo é obrigatório']);
-            }
- 
-            $cancelled = $this->appointmentService->cancelRecurrence(
-                $groupId,
-                $reason,
-                $fromDate ? new \DateTime($fromDate) : null,
-                $isAdmin
-            );
- 
-            return Response::json(
-                ['sessions_cancelled' => $cancelled],
-                200,
-                "{$cancelled} sessão(ões) cancelada(s)"
-            );
- 
-        } catch (AppointmentNotFoundException $e) {
-            return Response::notFound($e->getMessage());
- 
-        } catch (PastAppointmentException $e) {
-            return Response::error($e->getMessage(), 400, 'PastAppointmentException');
- 
-        } catch (\Throwable $e) {
-            return Response::serverError();
-        }
-    }
- 
- 
     // =========================================================
     // ADMIN — DELEÇÃO E RESTAURAÇÃO
     // =========================================================
- 
+
     /**
-     * DELETE /api/appointments/{id}
-     * Soft delete de um agendamento (admin only)
+     * DELETE /api/appointments/{id}?scope=this|future|all
+     * Exclui (soft delete) um agendamento — admin only.
+     *
+     * Único fluxo de encerramento de agendamentos (substitui o cancelamento).
+     * Para sessões recorrentes, `scope` define o alcance da exclusão:
+     *   this   (padrão) → apenas esta sessão
+     *   future           → esta sessão e as futuras da mesma recorrência
+     *   all              → todas as sessões da recorrência
      */
     public function destroy(Request $request): Response
     {
         try {
             $id = (int) $request->param('id');
-            $this->appointmentService->deleteAppointment($id);
- 
-            return Response::noContent();
- 
+            $scope = $request->query('scope', 'this');
+
+            $deletedCount = $this->appointmentService->deleteAppointment($id, $scope);
+
+            return Response::json(['deleted_count' => $deletedCount], 200, 'Agendamento excluído');
+
         } catch (AppointmentNotFoundException $e) {
             return Response::notFound($e->getMessage());
- 
+
+        } catch (ValidationException $e) {
+            return Response::validationError($e->getErrors());
+
         } catch (\Throwable $e) {
             return Response::serverError();
         }
