@@ -12,6 +12,16 @@ Sistema de agendamento para clínicas de psicologia (psicólogos, psicopedagogos
 - **Dashboard** — aniversariantes do mês, indicadores rápidos.
 - **E-mail** — o paciente recebe um e-mail (via Resend) quando o agendamento é criado e quando é confirmado.
 
+## Capturas de tela
+
+| Dashboard | Financeiro |
+|---|---|
+| ![Dashboard](docs/screenshots/dashboard.gif) | ![Financeiro](docs/screenshots/financeiro.gif) |
+
+| Agendamentos | Sublocação |
+|---|---|
+| ![Agendamentos](docs/screenshots/agendamentos.gif) | ![Sublocação](docs/screenshots/sublocacoes.png) |
+
 ## Estrutura do repositório
 
 ```
